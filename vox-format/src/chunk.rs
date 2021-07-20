@@ -119,10 +119,10 @@ impl Chunk {
         })
     }
 
-    pub fn content<'r, R: Read + Seek>(&self, reader: &'r mut R) -> Result<Content<'r, R>, ReadError> {
+    pub fn content<'r, R: Read + Seek>(&self, reader: &'r mut R) -> Result<ContentReader<'r, R>, ReadError> {
         let offset = self.content_offset();
         reader.seek(SeekFrom::Start(offset as u64))?;
-        Ok(Content {
+        Ok(ContentReader {
             reader,
             start_offset: offset,
             offset,
@@ -130,10 +130,10 @@ impl Chunk {
         })
     }
 
-    pub fn children<'r, R: Read + Seek + 'r>(&self, reader: &'r mut R) -> Children<'r, R> {
+    pub fn children<'r, R: Read + Seek + 'r>(&self, reader: &'r mut R) -> ChildrenReader<'r, R> {
         let offset = self.children_offset();
 
-        Children {
+        ChildrenReader {
             reader,
             offset,
             end: offset + self.children_len,
@@ -169,7 +169,7 @@ impl Chunk {
     }
 }
 
-pub struct Content<'r, R> {
+pub struct ContentReader<'r, R> {
     reader: &'r mut R,
     #[allow(dead_code)]
     start_offset: u32,
@@ -177,7 +177,7 @@ pub struct Content<'r, R> {
     end: u32,
 }
 
-impl<'r, R: Read> Read for Content<'r, R> {
+impl<'r, R: Read> Read for ContentReader<'r, R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, IoError> {
         if self.offset < self.end {
             let n_at_most = ((self.end - self.offset) as usize).min(buf.len());
@@ -190,19 +190,19 @@ impl<'r, R: Read> Read for Content<'r, R> {
     }
 }
 
-impl<'r, R: Seek> Seek for Content<'r, R> {
+impl<'r, R: Seek> Seek for ContentReader<'r, R> {
     fn seek(&mut self, _pos: SeekFrom) -> std::io::Result<u64> {
         todo!()
     }
 }
 
-pub struct Children<'r, R> {
+pub struct ChildrenReader<'r, R> {
     reader: &'r mut R,
     offset: u32,
     end: u32,
 }
 
-impl<'r, R: Read + Seek> Iterator for Children<'r, R> {
+impl<'r, R: Read + Seek> Iterator for ChildrenReader<'r, R> {
     type Item = Result<Chunk, ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {

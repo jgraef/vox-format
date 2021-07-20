@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2018"
 authors = ["Janosch Gräf <janosch.graef@gmail.com>"]
 description = "Parser for MagicaVoxel's .VOX file format."
+license = "MIT"
+documentation = "https://docs.rs/vox-format"
+homepage = "https://github.com/jgraef/vox-format"
+repository = "https://github.com/jgraef/vox-format"
+readme = "REAMDE.md"
+categories = ["encoding", "game-development", "graphics", "multimedia::encoding", "parser-implementations", "rendering::data-formats"]
 
 [dependencies]
 byteorder = "1.4"
