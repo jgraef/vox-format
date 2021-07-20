@@ -1,9 +1,9 @@
-
-** This is in development. The README is not accurate, as there is no release on crates.io yet. **
-
-
 [![MIT license](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
 ![Maintenance](https://img.shields.io/badge/maintenance-experimental-blue.svg)
+
+
+**This is in development. The README is not accurate, as there is no release on crates.io yet.**
+
 
 # `vox-format`
 
@@ -27,17 +27,48 @@ println!("{:#?}, vox_data);
 ```
 
 
-
 # `vox-tool`
 
 `vox-tool` is a command-line tool to inspect and manipulate VOX files.
 
 If you want some functionality for this tool, please open an issue or pull request.
 
+## Usage
+
+```
+vox-tool 0.1.0
+Tools for inspection and manipulation of MagicaVoxel VOX files
+
+USAGE:
+    vox-tool <SUBCOMMAND>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+SUBCOMMANDS:
+    help     Prints this message or the help of the given subcommand(s)
+    strip    Strips chunks from the VOX file
+```
 
 
-[![MIT license](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
-![Maintenance](https://img.shields.io/badge/maintenance-experimental-blue.svg)
+In the repository run:
+
+```sh
+cargo run -- --help
+```
+
+or if you want to install the binary, run:
+
+```sh
+cargo install -p vox-tool
+```
+
+Then from any directory, run
+
+```sh
+vox-tool --hwlp
+```
 
 
 # TODO
@@ -46,6 +77,6 @@ If you want some functionality for this tool, please open an issue or pull reque
  - Integrate into `building-blocks`.
 
 
-## License
+# License
 
 Licensed under MIT license ([LICENSE](LICENSE) or https://opensource.org/licenses/MIT)
