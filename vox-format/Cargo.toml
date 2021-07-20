@@ -1,0 +1,15 @@
+[package]
+name = "vox-format"
+version = "0.1.0"
+edition = "2018"
+authors = ["Janosch Gräf <janosch.graef@gmail.com>"]
+description = "Parser for MagicaVoxel's .VOX file format."
+
+[dependencies]
+byteorder = "1.4"
+thiserror = "1.0"
+log = "0.4"
+
+[dev-dependencies]
+pretty_env_logger = "0.4"
+dotenv = "0.15"

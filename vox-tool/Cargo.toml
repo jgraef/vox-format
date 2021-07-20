@@ -1,0 +1,17 @@
+[package]
+name = "vox-tool"
+version = "0.1.0"
+edition = "2018"
+authors = ["Janosch Gräf <janosch.graef@gmail.com>"]
+description = "Tools for MagicaVoxel's .VOX file format."
+
+[dependencies]
+log = "0.4"
+pretty_env_logger = "0.4"
+dotenv = "0.15"
+structopt = "0.3"
+color-eyre = "0.5"
+
+[dependencies.vox-format]
+version = "0.1.0"
+path = "../vox-format"
