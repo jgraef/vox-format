@@ -64,7 +64,7 @@ cargo install -p vox-tool
 Then from any directory, run
 
 ```sh
-vox-tool --hwlp
+vox-tool --help
 ```
 
 
