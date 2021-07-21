@@ -20,7 +20,7 @@ vox-format = "0.1"
 ## Example
 
 ```rust
-let vox_data = vox_format::from_file("test_files/ore_small.vox")?;
+let vox_data = vox_format::from_file("test_files/glider.vox")?;
 println!("{:#?}, vox_data);
 ```
 
@@ -40,12 +40,19 @@ USAGE:
     vox-tool <SUBCOMMAND>
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -h, --help
+            Prints help information
+
+    -V, --version
+            Prints version information
+
 
 SUBCOMMANDS:
-    help     Prints this message or the help of the given subcommand(s)
-    strip    Strips chunks from the VOX file
+    export-palette    Exports a palette as image
+    help              Prints this message or the help of the given subcommand(s)
+    print-info        Prints info about a VOX file
+    set-palette       Replaces the palette in a VOX file
+    strip             Strips chunks from the VOX file
 ```
 
 
@@ -58,7 +65,7 @@ cargo run -- --help
 or if you want to install the binary, run:
 
 ```sh
-cargo install -p vox-tool
+cargo install -p vox-tool --help
 ```
 
 Then from any directory, run
