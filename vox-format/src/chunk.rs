@@ -1,3 +1,14 @@
+//! This modules provides utilities to read and write VOX files as chunks, but
+//! is agnostic to the content of these chunks.
+//!
+//! VOX files use a binary format that is similar to that of RIFF files.
+//! Unfortunately it's different enough that the `riff` crate can't be used.
+//!
+//! The file format consists of so-called chunks, which contain specific data
+//! (e.g. palette data). Chunks have IDs consisting of 4 characters. A file
+//! starts with a root-chunk `MAIN`. The `MAIN` chunk then contains other chunks
+//! that contain the voxel data. The format is specified [here](https://github.com/ephtracy/voxel-model/blob/master/MagicaVoxel-file-format-vox.txt), but not all chunk IDs are described.
+
 use std::{
     convert::TryInto,
     io::{
@@ -29,6 +40,11 @@ use crate::{
 #[error("Failed to parse chunk ID: {0}")]
 pub struct ChunkIdParseError(String);
 
+/// A chunk ID. It's either a pre-defined ID (that is used for VOX), or
+/// `Unsupported`.
+///
+/// The best way to find out which chunk IDs MagicaVoxel uses, is by looking at
+/// its [source](https://github.com/aiekick/MagicaVoxel_File_Writer/blob/master/VoxWriter.cpp)
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ChunkId {
     Main,
@@ -54,17 +70,12 @@ impl ChunkId {
         Ok(writer.write_all(&id)?)
     }
 
+    /// Returns whether this chunk ID is currently supported by this crate.
     pub fn is_supported(&self) -> bool {
         !matches!(self, ChunkId::Unsupported(_))
     }
 }
 
-///
-/// # TODO
-///
-///  - Implement undocumented types[1]
-///
-/// [1] https://github.com/aiekick/MagicaVoxel_File_Writer/blob/master/VoxWriter.cpp
 impl From<[u8; 4]> for ChunkId {
     fn from(value: [u8; 4]) -> Self {
         match &value {
@@ -74,9 +85,6 @@ impl From<[u8; 4]> for ChunkId {
             b"XYZI" => Self::Xyzi,
             b"RGBA" => Self::Rgba,
             b"MATT" => Self::Matt,
-            //b"nTRN" => Self::Ntrn,
-            //b"nGRP" => Self::NGrp,
-            //b"nSHP" => Self::NShp,
             _ => Self::Unsupported(value),
         }
     }
@@ -110,6 +118,9 @@ impl FromStr for ChunkId {
     }
 }
 
+/// Chunk meta-data. This doesn't contain contents or children, but information
+/// needed to read the chunk from a file. You will still need a reader to read
+/// the contents though.
 #[derive(Clone, Debug)]
 pub struct Chunk {
     offset: u32,
@@ -119,6 +130,8 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    /// Reads the chunk header and returns the information needed to read its
+    /// contents or children.
     pub fn read<R: Read + Seek>(mut reader: R) -> Result<Self, ReadError> {
         let offset = reader.stream_position()? as u32;
 
@@ -141,6 +154,7 @@ impl Chunk {
         })
     }
 
+    /// Creates a reader for its contents.
     pub fn content<'r, R: Read + Seek>(
         &self,
         reader: &'r mut R,
@@ -156,6 +170,10 @@ impl Chunk {
         })
     }
 
+    /// Creates an iterator over its children. The iterator yields
+    /// `Result<Chunk, _>`, so you'll need to handle the error first.
+    /// Each child then is another `Chunk` struct that can be used to read
+    /// contents or children.
     pub fn children<'r, R: Read + Seek + 'r>(&self, reader: &'r mut R) -> ChildrenReader<'r, R> {
         let offset = self.children_offset();
 
@@ -172,35 +190,49 @@ impl Chunk {
         }
     }
 
+    /// Returns the offset at which the chunk starts. This is relative to the
+    /// start of the reader. Note that for children chunks, this is relative
+    /// to the start of the child data, since they basically use a
+    /// `ContentReader` to read children chunks.
     pub fn offset(&self) -> u32 {
         self.offset
     }
 
+    /// Returns the chunk IDs
     pub fn id(&self) -> ChunkId {
         self.id
     }
 
+    /// Returns the offset to the content data. See [`Self::offset`] for further
+    /// information.
     pub fn content_offset(&self) -> u32 {
         self.offset + 12
     }
 
+    /// Returns the length of the content data.
     pub fn content_len(&self) -> u32 {
         self.content_len
     }
 
+    /// Returns the offset to the children data. See [`Self::offset`] for
+    /// further information.
     pub fn children_offset(&self) -> u32 {
         self.offset + 12 + self.content_len
     }
 
+    /// Returns the length of the children data.
     pub fn children_len(&self) -> u32 {
         self.children_len
     }
 
+    /// Returns the length of this chunk. That is the length of its contents,
+    /// children and header.
     pub fn len(&self) -> u32 {
         self.content_len + self.children_len + 12
     }
 }
 
+/// A reader for a chunk's contents.
 pub struct ContentReader<'r, R> {
     reader: &'r mut R,
     offset: u32,
@@ -259,6 +291,7 @@ impl<'r, R: Seek> Seek for ContentReader<'r, R> {
     }
 }
 
+/// An iterator over a chunk's children.
 pub struct ChildrenReader<'r, R> {
     reader: &'r mut R,
     offset: u32,
@@ -279,7 +312,8 @@ impl<'r, R: Read + Seek> Iterator for ChildrenReader<'r, R> {
     }
 }
 
-fn read_chunk_at<R: Read + Seek>(reader: &mut R, offset: &mut u32) -> Result<Chunk, ReadError> {
+/// Reads a chunk from `reader` at the specified offset.
+pub fn read_chunk_at<R: Read + Seek>(reader: &mut R, offset: &mut u32) -> Result<Chunk, ReadError> {
     log::trace!("reading chunk at {}", offset);
     reader.seek(SeekFrom::Start((*offset).into()))?;
     let chunk = Chunk::read(reader)?;
@@ -287,7 +321,7 @@ fn read_chunk_at<R: Read + Seek>(reader: &mut R, offset: &mut u32) -> Result<Chu
     Ok(chunk)
 }
 
-/// Verifies the VOX file's signature and reads the MAIN chunk and file version.
+/// Reads the VOX file's header, verifies it, and then reads the MAIN chunk.
 pub fn read_main_chunk<R: Read + Seek>(mut reader: R) -> Result<(Chunk, Version), ReadError> {
     let mut buf = [0u8; 4];
     reader.read_exact(&mut buf)?;
@@ -308,6 +342,7 @@ pub fn read_main_chunk<R: Read + Seek>(mut reader: R) -> Result<(Chunk, Version)
     Ok((main_chunk, version))
 }
 
+/// This struct is used to write out chunks to a file.
 #[derive(Debug)]
 pub struct ChunkWriter<W> {
     chunk_id: ChunkId,
@@ -339,22 +374,53 @@ impl<W: Write + Seek> ChunkWriter<W> {
         })
     }
 
+    /// Returns the chunk ID
     pub fn id(&self) -> ChunkId {
         self.chunk_id
     }
 
+    /// Returns the offset at which this chunk is written in the underlying
+    /// writer. Similar to [`Chunk::offset`], this is is usually 0 for child
+    /// chunks, since the use a [`ContentWriter`], which only sees the children
+    /// data.
     pub fn offset(&self) -> u64 {
         self.offset
     }
 
+    /// Returns the current length of the contents.
     pub fn content_len(&self) -> u32 {
         self.content_len
     }
 
-    pub fn children_lne(&self) -> u32 {
+    /// Returns the current length of the children data. This is the total
+    /// number of bytes written for children chunks.
+    pub fn children_len(&self) -> u32 {
         self.children_len
     }
 
+    /// Writes data to the chunks content.
+    ///
+    /// Note, that this must be called before any calls to `child_writer`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::io::Cursor;
+    /// # use vox_format::chunk::*;
+    /// # vox_format::writer::main_chunk_writer(Cursor::new(vec![]), Default::default(), |chunk_writer| {
+    /// use std::io::Write;
+    ///
+    /// chunk_writer.content_writer(|writer| {
+    ///     // `writer` implements `std::io::Write + std::io::Seek`.
+    ///     writer.write_all(b"Hello World")?;
+    ///     Ok(())
+    /// })
+    /// # }).unwrap();
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics, if children have been written already.
     pub fn content_writer<'w, F: FnMut(&mut ContentWriter<&'w mut W>) -> Result<(), WriteError>>(
         &'w mut self,
         mut f: F,
@@ -378,13 +444,30 @@ impl<W: Write + Seek> ChunkWriter<W> {
         Ok(())
     }
 
+    /// Writes the given slice to the chunk's data.
     pub fn write_content(&mut self, data: &[u8]) -> Result<(), WriteError> {
         self.content_writer(|content_writer| {
-            content_writer.write(data)?;
+            content_writer.write_all(data)?;
             Ok(())
         })
     }
 
+    /// Writes children chunks to this chunk. Note, that after a child has been
+    /// written to a chunk, you can't write any more data to its contents.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::io::Cursor;
+    /// # use vox_format::chunk::*;
+    /// # vox_format::writer::main_chunk_writer(Cursor::new(vec![]), Default::default(), |chunk_writer| {
+    /// chunk_writer.child_writer(ChunkId::Main, |child_writer| {
+    ///     // `child_writer` is just another `ChunkWriter`.
+    ///     child_writer.write_content(b"Hello World")?;
+    ///     Ok(())
+    /// })
+    /// # }).unwrap();
+    /// ```
     pub fn child_writer<'w, F: FnMut(&mut ChildWriter<'w, W>) -> Result<(), WriteError>>(
         &'w mut self,
         chunk_id: ChunkId,
@@ -438,6 +521,8 @@ impl<W: Write + Seek> ChunkWriter<W> {
     }
 }
 
+/// This implements `Write` and `Seek` on a restricted range of offsets in the
+/// underlying reader of the chunk you're writing to.
 #[derive(Debug)]
 pub struct ContentWriter<W> {
     writer: W,
@@ -511,12 +596,18 @@ impl<W: Seek> Seek for ContentWriter<W> {
     }
 }
 
+/// Short-hand for a [`ChunkWriter`] wrapping a [`ContentWriter`]. The
+/// underlying content-writer writes to the chunk's children data blob.
 pub type ChildWriter<'w, W> = ChunkWriter<ContentWriter<&'w mut W>>;
 
+/// This creates a `ChunkWriter` and will the closure you passed in with it.
+/// This allows you to write contents and children to the `ChunkWriter`. After
+/// you return from the closure this function will make sure that the chunk
+/// headers are upates.
 pub fn chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Result<(), WriteError>>(
     writer: W,
-    mut f: F,
     chunk_id: ChunkId,
+    mut f: F,
 ) -> Result<(), WriteError> {
     let mut chunk_writer = ChunkWriter::new(writer, chunk_id)?;
 

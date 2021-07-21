@@ -1,3 +1,6 @@
+//! Types used by reader and writer. Also contains [`VoxData`] which is a
+//! built-in [`crate::reader::VoxBuffer`].
+
 use std::{
     fmt,
     ops::Index,
@@ -154,8 +157,6 @@ impl From<[u8; 4]> for Color {
         }
     }
 }
-
-
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColorIndex(pub u8);

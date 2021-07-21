@@ -1,8 +1,11 @@
+//! Defines the default palette used by MagicaVoxel.
+
 use crate::vox::{
     Color,
     Palette,
 };
 
+/// The default palette used by MagicaVoxel.
 pub const DEFAULT_PALETTE: Palette = Palette {
     colors: [
         Color {

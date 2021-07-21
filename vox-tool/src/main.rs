@@ -1,18 +1,39 @@
-use std::{collections::HashSet, convert::TryInto, fs::{
+use std::{
+    collections::HashSet,
+    convert::TryInto,
+    fs::{
         File,
         OpenOptions,
-    }, io::{Read, Write}, path::{
+    },
+    io::{
+        Read,
+        Write,
+    },
+    path::{
         Path,
         PathBuf,
-    }};
+    },
+};
 
 use color_eyre::eyre::{
     bail,
     Error,
 };
-use image::{RgbaImage, io::Reader as ImageReader};
+use image::io::Reader as ImageReader;
 use structopt::StructOpt;
-use vox_format::{Model, Palette, chunk::{Chunk, ChunkId, ChunkWriter, read_main_chunk}, default_palette::DEFAULT_PALETTE, from_file, writer::main_chunk_writer};
+use vox_format::{
+    chunk::{
+        read_main_chunk,
+        Chunk,
+        ChunkId,
+        ChunkWriter,
+    },
+    default_palette::DEFAULT_PALETTE,
+    from_file,
+    writer::main_chunk_writer,
+    Model,
+    Palette,
+};
 
 /// Tools for inspection and manipulation of MagicaVoxel VOX files.
 #[derive(Debug, StructOpt)]
@@ -37,7 +58,7 @@ enum Args {
         /// The input file from which the chunks will be stripped.
         input: PathBuf,
     },
-    /// Print all VOX data as debug output.
+    /// Prints info about a VOX file.
     PrintInfo {
         /// The input file from which information willbe displayed
         input: PathBuf,
@@ -51,7 +72,8 @@ enum Args {
         #[structopt(short = "P")]
         print_palette_even_if_default: bool,
 
-        /// Print all models. This overrides anything set with `-m` or `--model`.
+        /// Print all models. This overrides anything set with `-m` or
+        /// `--model`.
         #[structopt(short = "M", long = "all-models")]
         print_all_models: bool,
 
@@ -59,11 +81,14 @@ enum Args {
         #[structopt(short = "m", long = "model")]
         model_index: Option<usize>,
     },
+    /// Exports a palette as image.
     ExportPalette {
-        /// The input file from which the palette will be exported. If omitted, the default palette willbe exported.
+        /// The input file from which the palette will be exported. If omitted,
+        /// the default palette will be exported.
         input: Option<PathBuf>,
 
-        /// The path for the output file. The file format will be guessed using the file extension.
+        /// The path for the output file. The file format will be guessed using
+        /// the file extension.
         #[structopt(short = "o", long = "output")]
         output: PathBuf,
     },
@@ -81,28 +106,32 @@ enum Args {
         #[structopt(short = "o", long = "output")]
         ouptut: PathBuf,
     },*/
-
     /// Replaces the palette in a VOX file.
     ///
-    /// The palette is specified with `--palette` option and must be an image. Regardless of the image's shape, the first 256 pixels
-    /// will be used for the palette.
+    /// The palette is specified with `--palette` option and must be an image.
+    /// Regardless of the image's shape, the first 256 pixels will be used
+    /// for the palette.
     ///
     /// The images will be converted to RGBA values to be used in the palette.
     ///
-    /// Note that entry 0 in the palette is special, in that it's always transparent. If you set another color for that pixel, it will be ignored.
+    /// Note that entry 0 in the palette is special, in that it's always
+    /// transparent. If you set another color for that pixel, it will be
+    /// ignored.
     SetPalette {
         /// The input file that will have it's palette changed.
         input: PathBuf,
 
-        /// Path to image containing the palette. This his compatible with `export-palette`. If omitted, the default palette
+        /// Path to image containing the palette. This his compatible with
+        /// `export-palette`. If omitted, the default palette
         /// will be used.
         #[structopt(short = "p", long = "palette")]
         palette: Option<PathBuf>,
 
-        /// The path for the output file. The file format will be guessed using the file extension.
+        /// The path for the output file. The file format will be guessed using
+        /// the file extension.
         #[structopt(short = "o", long = "output")]
         output: Option<PathBuf>,
-    }
+    },
 }
 
 #[derive(Debug)]
@@ -209,7 +238,7 @@ impl Args {
             Self::ExportPalette { input, output } => {
                 let vox;
                 let palette = if let Some(input) = input {
-                    vox = from_file(input)?; 
+                    vox = from_file(input)?;
                     &vox.palette
                 }
                 else {
@@ -218,12 +247,17 @@ impl Args {
 
                 let image = palette.as_image();
                 image.save(output)?;
-            },
-            Self::SetPalette { input, palette, output } => {
+            }
+            Self::SetPalette {
+                input,
+                palette,
+                output,
+            } => {
                 let palette = if let Some(palette) = palette {
                     let image = ImageReader::open(palette)?.decode()?;
 
-                    // TODO: It would be nicer to pass an `ImageBuffer` with any pixel format and then just convert the pixels we need.
+                    // TODO: It would be nicer to pass an `ImageBuffer` with any pixel format and
+                    // then just convert the pixels we need.
                     let image = image.into_rgba8();
 
                     Palette::from_image(&image)
@@ -237,9 +271,8 @@ impl Args {
                 map_chunks(&input, &output, |_reader, chunk, writer| {
                     if matches!(chunk.id(), ChunkId::Rgba) {
                         // Replace RGBA chunk
-                        writer.child_content_writer(ChunkId::Rgba, |writer| {
-                            palette.write(writer)
-                        })?;
+                        writer
+                            .child_content_writer(ChunkId::Rgba, |writer| palette.write(writer))?;
 
                         Ok(false)
                     }
@@ -247,7 +280,7 @@ impl Args {
                         Ok(true)
                     }
                 })?;
-            },
+            }
         }
 
         Ok(())
@@ -268,7 +301,15 @@ fn default_output_path<P: AsRef<Path>>(input: P, postfix: &str) -> PathBuf {
     input.with_extension(format!("{}.{}", postfix, ext))
 }
 
-fn map_chunks<P: AsRef<Path>, Q: AsRef<Path>, F: FnMut(&mut File, &Chunk, &mut ChunkWriter<File>) -> Result<bool, vox_format::writer::Error>>(input: P, output: Q, mut f: F) -> Result<(), Error> {
+fn map_chunks<
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+    F: FnMut(&mut File, &Chunk, &mut ChunkWriter<File>) -> Result<bool, vox_format::writer::Error>,
+>(
+    input: P,
+    output: Q,
+    mut f: F,
+) -> Result<(), Error> {
     let input = input.as_ref();
     let output = output.as_ref();
 
@@ -304,7 +345,8 @@ fn map_chunks<P: AsRef<Path>, Q: AsRef<Path>, F: FnMut(&mut File, &Chunk, &mut C
                     Ok(())
                 })?;
 
-                // TODO: If we move the copy function into `vox-format`, we can make use of the fact that we can read/write the children as a blob.
+                // TODO: If we move the copy function into `vox-format`, we can make use of the
+                // fact that we can read/write the children as a blob.
                 if chunk.children_len() != 0 {
                     todo!("TODO: Copy children. This is not implemented, because at this point all supported chunk types (except `MAIN`) have no children. Please open an issue, if you need this feature.");
                 }
@@ -316,7 +358,6 @@ fn map_chunks<P: AsRef<Path>, Q: AsRef<Path>, F: FnMut(&mut File, &Chunk, &mut C
 
     Ok(())
 }
-
 
 fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();

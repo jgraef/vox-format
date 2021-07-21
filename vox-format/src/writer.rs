@@ -1,3 +1,4 @@
+///! Provides functions to write VOX files.
 use std::{
     convert::TryInto,
     fs::OpenOptions,
@@ -32,6 +33,7 @@ use crate::{
     Voxel,
 };
 
+/// Error type returned when writing fails.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("IO error")]
@@ -43,7 +45,8 @@ pub enum Error {
     #[error("Can't write VOX file with no models.")]
     NoModels,
 
-    /// This is a work-around,since sometimes we want to read VOX files in a chunk-writer closure.
+    /// This is a work-around,since sometimes we want to read VOX files in a
+    /// chunk-writer closure.
     #[error("Reader error")]
     Reader(#[from] crate::reader::Error),
 }
@@ -100,12 +103,15 @@ impl ColorIndex {
     }
 }
 
+/// Writes the file header for a VOX file.
 pub fn write_file_header<W: Write>(mut writer: W, version: Version) -> Result<(), Error> {
     writer.write_all(b"VOX ")?;
     version.write(writer)?;
     Ok(())
 }
 
+/// Writes the MAIN chunk including the file signature. The closure you pass,
+/// will be called with the [`ChunkWriter`] for the `MAIN` chunk.
 pub fn main_chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Result<(), Error>>(
     mut writer: W,
     version: Version,
@@ -113,9 +119,10 @@ pub fn main_chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Resul
 ) -> Result<(), Error> {
     write_file_header(&mut writer, version)?;
 
-    chunk_writer(writer, f, ChunkId::Main)
+    chunk_writer(writer, ChunkId::Main, f)
 }
 
+/// Writes [`VoxData`] to an IO writer.
 pub fn to_writer<W: Write + Seek>(writer: W, vox: &VoxData) -> Result<(), Error> {
     main_chunk_writer(writer, Version::default(), |chunk_writer| {
         // Write PACK, if there is more than 1 model
@@ -160,6 +167,7 @@ pub fn to_writer<W: Write + Seek>(writer: W, vox: &VoxData) -> Result<(), Error>
     })
 }
 
+/// Encode [`VoxData`] and return bytes as `Vec<u8>`.
 pub fn to_vec(vox: &VoxData) -> Result<Vec<u8>, Error> {
     //let mut buf = Vec::with_capacity(vox.size_hint());
     let mut buf = Vec::with_capacity(1024);
@@ -168,34 +176,7 @@ pub fn to_vec(vox: &VoxData) -> Result<Vec<u8>, Error> {
     Ok(buf)
 }
 
+/// Writes VOX data to the specified path.
 pub fn to_file<P: AsRef<Path>>(path: P, vox: &VoxData) -> Result<(), Error> {
     to_writer(OpenOptions::new().create(true).write(true).open(path)?, vox)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        writer::to_file,
-        Model,
-        Vector,
-        VoxData,
-        Voxel,
-    };
-
-    #[test]
-    fn write_vox_from_data() {
-        let mut vox = VoxData::default();
-        vox.models.push(Model {
-            size: Vector::new(3, 3, 1),
-            voxels: vec![
-                Voxel::new([1, 0, 0], 1),
-                Voxel::new([2, 1, 0], 1),
-                Voxel::new([0, 2, 0], 1),
-                Voxel::new([1, 2, 0], 1),
-                Voxel::new([2, 2, 0], 1),
-            ],
-        });
-
-        to_file("../test_files/glider.vox", &vox).unwrap();
-    }
 }

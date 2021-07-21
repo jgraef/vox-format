@@ -21,11 +21,8 @@ vox-format = "0.1"
 
 ```rust
 let vox_data = vox_format::from_file("test_files/ore_small.vox")?;
-
 println!("{:#?}, vox_data);
-
 ```
-
 
 # `vox-tool`
 
@@ -73,9 +70,8 @@ vox-tool --hwlp
 
 # TODO
 
- - Implement `Seek` for `ContentReader` and `ContentWriter`.
  - Integrate into `building-blocks`.
-
+ - Write tests
 
 # License
 

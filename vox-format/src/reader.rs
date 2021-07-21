@@ -1,3 +1,4 @@
+///! Provides functions to read VOX files.
 use std::{
     fs::File,
     io::{
@@ -32,6 +33,7 @@ use crate::{
     VoxData,
 };
 
+/// Error type returned when reading a VOX file fails.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Expected file header to start with b'VOX ', but got: {got:?}.")]
@@ -57,6 +59,9 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
+/// A trait for data structures that can constructed from a VOX file.
+/// `[crate::vox::VoxData]` implements this for convienience, but you can also
+/// implement this for your own voxel model types.
 pub trait VoxBuffer {
     fn set_version(&mut self, version: Version);
 
@@ -69,6 +74,7 @@ pub trait VoxBuffer {
     fn set_palette(&mut self, palette: Palette);
 }
 
+/// Reads a VOX file from the reader into the [`VoxBuffer`].
 pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
     mut reader: R,
     buffer: &mut B,
@@ -209,6 +215,23 @@ impl ColorIndex {
     }
 }
 
+/// Reads a VOX file from a reader into `VoxData`.
+pub fn from_reader<R: Read + Seek>(reader: R) -> Result<VoxData, Error> {
+    let mut buffer = VoxData::default();
+    read_vox_into(reader, &mut buffer)?;
+    Ok(buffer)
+}
+
+/// Reads a VOX file from a slice into `VoxData`.
+pub fn from_slice(slice: &[u8]) -> Result<VoxData, Error> {
+    from_reader(Cursor::new(slice))
+}
+
+/// Reads a VOX file from the specified path into `VoxData`.
+pub fn from_file<P: AsRef<Path>>(path: P) -> Result<VoxData, Error> {
+    from_reader(File::open(path)?)
+}
+
 #[cfg(test)]
 mod tests {
     // TODO: Write some proper test with some better test files.
@@ -234,18 +257,4 @@ mod tests {
             Err(e) => panic!("Error: {}", e),
         }
     }
-}
-
-pub fn from_reader<R: Read + Seek>(reader: R) -> Result<VoxData, Error> {
-    let mut buffer = VoxData::default();
-    read_vox_into(reader, &mut buffer)?;
-    Ok(buffer)
-}
-
-pub fn from_slice(slice: &[u8]) -> Result<VoxData, Error> {
-    from_reader(Cursor::new(slice))
-}
-
-pub fn from_file<P: AsRef<Path>>(path: P) -> Result<VoxData, Error> {
-    from_reader(File::open(path)?)
 }
