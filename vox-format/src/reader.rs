@@ -27,7 +27,6 @@ use crate::{
         Palette,
         Vector,
         Version,
-        VoxDataBuffer,
         Voxel,
     },
     VoxData,
@@ -79,7 +78,7 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
     buffer.set_version(version);
 
     //print_chunk(&main_chunk, &mut self.reader, 0)?;
-    log::debug!("main chunk: {:#?}", main_chunk);
+    log::trace!("main chunk: {:#?}", main_chunk);
 
     let mut pack_chunk = None;
     let mut size_chunks = vec![];
@@ -105,6 +104,7 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
                         chunks: [rgba_chunk.take().unwrap(), chunk],
                     });
                 }
+                rgba_chunk = Some(chunk);
             }
             id => log::trace!("Skipping unsupported chunk: {:?}", id),
         }
@@ -114,7 +114,7 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
         .map(|pack| Ok::<_, Error>(pack.content(&mut reader)?.read_u32::<LE>()? as usize))
         .transpose()?
         .unwrap_or(1);
-    log::debug!("num_models = {}", num_models);
+    log::trace!("num_models = {}", num_models);
 
     if num_models != size_chunks.len() || num_models != xyzi_chunks.len() {
         return Err(Error::InvalidNumberOfSizeAndXyziChunks {
@@ -127,24 +127,28 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
 
     for (size_chunk, xyzi_chunk) in size_chunks.into_iter().zip(xyzi_chunks) {
         let model_size = Vector::read(&mut size_chunk.content(&mut reader)?)?;
-        log::debug!("model_size = {:?}", model_size);
+        log::trace!("model_size = {:?}", model_size);
         buffer.set_model_size(model_size);
 
         let mut reader = xyzi_chunk.content(&mut reader)?;
 
         let num_voxels = reader.read_u32::<LE>()?;
-        log::debug!("num_voxels = {}", num_voxels);
+        log::trace!("num_voxels = {}", num_voxels);
 
         for _ in 0..num_voxels {
             let voxel = Voxel::read(&mut reader)?;
-            log::debug!("voxel = {:?}", voxel);
+            log::trace!("voxel = {:?}", voxel);
             buffer.set_voxel(voxel);
         }
     }
 
     if let Some(rgba_chunk) = rgba_chunk {
+        log::debug!("read RGBA chunk");
         let palette = Palette::read(&mut rgba_chunk.content(&mut reader)?)?;
         buffer.set_palette(palette);
+    }
+    else {
+        log::debug!("no RGBA chunk found");
     }
 
     Ok(())
@@ -153,6 +157,16 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
 impl Version {
     pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
         Ok(Self(reader.read_u32::<LE>()?))
+    }
+}
+
+impl Vector {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
+        Ok(Self {
+            x: reader.read_i8()?,
+            y: reader.read_i8()?,
+            z: reader.read_i8()?,
+        })
     }
 }
 
@@ -169,7 +183,7 @@ impl Palette {
     pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
         let mut palette = Palette::default();
 
-        for i in 0..254 {
+        for i in 0..255 {
             palette.colors[i + 1] = Color::read(&mut reader)?;
         }
 
@@ -179,6 +193,7 @@ impl Palette {
 
 impl Color {
     pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
+        // FIXME: I think color is stored in ABGR format.
         Ok(Self {
             r: reader.read_u8()?,
             g: reader.read_u8()?,
@@ -194,16 +209,6 @@ impl ColorIndex {
     }
 }
 
-impl Vector {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        Ok(Self {
-            x: reader.read_i8()?,
-            y: reader.read_i8()?,
-            z: reader.read_i8()?,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     // TODO: Write some proper test with some better test files.
@@ -211,7 +216,7 @@ mod tests {
     use std::io::Cursor;
 
     pub use super::*;
-    use crate::vox::VoxDataBuffer;
+    use crate::vox::VoxData;
 
     #[test]
     fn it_works_perfectly_as_intended_lol() {
@@ -220,11 +225,11 @@ mod tests {
 
         let raw = include_bytes!("../../test_files/ore_small.vox");
 
-        let mut buffer = VoxDataBuffer::default();
+        let mut buffer = VoxData::default();
 
         match read_vox_into(Cursor::new(raw), &mut buffer) {
             Ok(()) => {
-                println!("{:#?}", buffer.build());
+                println!("{:#?}", buffer);
             }
             Err(e) => panic!("Error: {}", e),
         }
@@ -232,9 +237,9 @@ mod tests {
 }
 
 pub fn from_reader<R: Read + Seek>(reader: R) -> Result<VoxData, Error> {
-    let mut buffer = VoxDataBuffer::default();
+    let mut buffer = VoxData::default();
     read_vox_into(reader, &mut buffer)?;
-    Ok(buffer.build())
+    Ok(buffer)
 }
 
 pub fn from_slice(slice: &[u8]) -> Result<VoxData, Error> {

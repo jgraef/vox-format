@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow,
+    fmt,
     ops::Index,
 };
 
@@ -12,7 +12,7 @@ use crate::{
 pub struct VoxData {
     pub version: Version,
     pub models: Vec<Model>,
-    pub palette: Cow<'static, Palette>,
+    pub palette: Palette,
 }
 
 impl Default for VoxData {
@@ -26,7 +26,7 @@ impl VoxData {
         Self {
             version,
             models: vec![],
-            palette: Cow::Borrowed(&DEFAULT_PALETTE),
+            palette: Palette::default(),
         }
     }
 }
@@ -37,6 +37,12 @@ pub struct Version(pub u32);
 impl Default for Version {
     fn default() -> Self {
         Self(150)
+    }
+}
+
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -52,11 +58,44 @@ pub struct Voxel {
     pub color_index: ColorIndex,
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+impl Voxel {
+    pub fn new(point: impl Into<Vector>, color_index: impl Into<ColorIndex>) -> Self {
+        Self {
+            point: point.into(),
+            color_index: color_index.into(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Vector {
     pub x: i8,
     pub y: i8,
     pub z: i8,
+}
+
+impl Vector {
+    pub fn new(x: i8, y: i8, z: i8) -> Self {
+        Self { x, y, z }
+    }
+}
+
+impl From<[i8; 3]> for Vector {
+    fn from(v: [i8; 3]) -> Self {
+        Self::new(v[0], v[1], v[2])
+    }
+}
+
+impl From<Vector> for [i8; 3] {
+    fn from(v: Vector) -> Self {
+        [v.x, v.y, v.z]
+    }
+}
+
+impl fmt::Debug for Vector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -66,9 +105,20 @@ pub struct Palette {
 
 impl Default for Palette {
     fn default() -> Self {
-        Self {
-            colors: [Color::default(); 256],
-        }
+        DEFAULT_PALETTE.clone()
+    }
+}
+
+impl Palette {
+    pub fn is_default(&self) -> bool {
+        self.colors == DEFAULT_PALETTE.colors
+    }
+
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (ColorIndex, Color)> + 'a {
+        self.colors[1..]
+            .iter()
+            .enumerate()
+            .map(|(i, color)| (ColorIndex(i as u8), *color))
     }
 }
 
@@ -88,30 +138,50 @@ pub struct Color {
     pub a: u8,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ColorIndex(pub u8);
-
-#[derive(Debug, Default)]
-pub struct VoxDataBuffer {
-    version: Version,
-    models: Vec<Model>,
-    palette: Option<Palette>,
+impl From<Color> for [u8; 4] {
+    fn from(color: Color) -> Self {
+        [color.r, color.g, color.b, color.a]
+    }
 }
 
-impl VoxDataBuffer {
-    pub fn build(self) -> VoxData {
-        VoxData {
-            version: self.version,
-            models: self.models,
-            palette: self
-                .palette
-                .map(|palette| Cow::Owned(palette))
-                .unwrap_or_else(|| Cow::Borrowed(&DEFAULT_PALETTE)),
+impl From<[u8; 4]> for Color {
+    fn from(color: [u8; 4]) -> Self {
+        Self {
+            r: color[0],
+            g: color[0],
+            b: color[0],
+            a: color[0],
         }
     }
 }
 
-impl VoxBuffer for VoxDataBuffer {
+
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ColorIndex(pub u8);
+
+impl From<u8> for ColorIndex {
+    fn from(x: u8) -> Self {
+        if x == 255 {
+            panic!("Invalid color index: 255");
+        }
+        Self(x)
+    }
+}
+
+impl From<ColorIndex> for u8 {
+    fn from(x: ColorIndex) -> Self {
+        x.0
+    }
+}
+
+impl fmt::Display for ColorIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl VoxBuffer for VoxData {
     fn set_version(&mut self, version: Version) {
         self.version = version;
     }
@@ -136,6 +206,6 @@ impl VoxBuffer for VoxDataBuffer {
     }
 
     fn set_palette(&mut self, palette: Palette) {
-        self.palette = Some(palette);
+        self.palette = palette;
     }
 }

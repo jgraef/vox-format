@@ -17,7 +17,9 @@ pretty_env_logger = "0.4"
 dotenv = "0.15"
 structopt = "0.3"
 color-eyre = "0.5"
+image = "0.23"
 
 [dependencies.vox-format]
 version = "0.1.0"
 path = "../vox-format"
+features = ["image"]

@@ -123,11 +123,11 @@ impl Chunk {
         let offset = reader.stream_position()? as u32;
 
         let id = ChunkId::read(&mut reader)?;
-        log::debug!("read chunk at {}: {:?}", offset, id);
+        log::trace!("read chunk at {}: {:?}", offset, id);
 
         let content_len = reader.read_u32::<LE>()?;
         let children_len = reader.read_u32::<LE>()?;
-        log::debug!(
+        log::trace!(
             "content_len = {}, children_len = {}",
             content_len,
             children_len
@@ -146,7 +146,7 @@ impl Chunk {
         reader: &'r mut R,
     ) -> Result<ContentReader<'r, R>, ReadError> {
         let offset = self.content_offset();
-        log::debug!("content reader: id={:?}, offset={}", self.id, offset);
+        log::trace!("content reader: id={:?}, offset={}", self.id, offset);
         reader.seek(SeekFrom::Start(offset as u64))?;
         Ok(ContentReader {
             reader,
@@ -159,7 +159,11 @@ impl Chunk {
     pub fn children<'r, R: Read + Seek + 'r>(&self, reader: &'r mut R) -> ChildrenReader<'r, R> {
         let offset = self.children_offset();
 
-        log::debug!("children reader: offset={}, end={}", offset, offset + self.children_len);
+        log::trace!(
+            "children reader: offset={}, end={}",
+            offset,
+            offset + self.children_len
+        );
 
         ChildrenReader {
             reader,
@@ -193,9 +197,7 @@ impl Chunk {
     }
 
     pub fn len(&self) -> u32 {
-        let n = self.content_len + self.children_len + 12;
-        //log::debug!("chunk {:?} len = {}", self.id, n);
-        n
+        self.content_len + self.children_len + 12
     }
 }
 
@@ -208,12 +210,22 @@ pub struct ContentReader<'r, R> {
 
 impl<'r, R: Read> Read for ContentReader<'r, R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, IoError> {
-        log::debug!("read: offset={}, start={}, end={}", self.offset, self.start, self.end);
+        log::trace!(
+            "read: offset={}, start={}, end={}",
+            self.offset,
+            self.start,
+            self.end
+        );
         if self.offset < self.end {
             let n_at_most = ((self.end - self.offset) as usize).min(buf.len());
-            log::debug!("read: offset={}, end={}, n_at_most={}", self.offset, self.end, n_at_most);
+            log::trace!(
+                "read: offset={}, end={}, n_at_most={}",
+                self.offset,
+                self.end,
+                n_at_most
+            );
             let n_read = self.reader.read(&mut buf[..n_at_most])?;
-            log::debug!("read: n_read={}", n_read);
+            log::trace!("read: n_read={}", n_read);
             self.offset += n_read as u32;
             Ok(n_read)
         }
@@ -228,14 +240,21 @@ impl<'r, R: Seek> Seek for ContentReader<'r, R> {
         let new_offset = seek_to(self.offset, self.start, self.end, pos)?;
 
         if new_offset != self.offset {
-            log::debug!("seek: offset={}, start={}, end={}, pos={:?}, new_offset={}", self.offset, self.start, self.end, pos, new_offset);
+            log::trace!(
+                "seek: offset={}, start={}, end={}, pos={:?}, new_offset={}",
+                self.offset,
+                self.start,
+                self.end,
+                pos,
+                new_offset
+            );
 
             self.offset = new_offset;
 
             // TODO: Those seeks can just use `pos`.
             self.reader.seek(SeekFrom::Start(self.offset.into()))?;
         }
-        
+
         Ok((self.offset - self.start).into())
     }
 }
@@ -250,7 +269,7 @@ impl<'r, R: Read + Seek> Iterator for ChildrenReader<'r, R> {
     type Item = Result<Chunk, ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        log::debug!("read next child: offset={}, end={}", self.offset, self.end);
+        log::trace!("read next child: offset={}, end={}", self.offset, self.end);
         if self.offset < self.end {
             Some(read_chunk_at(self.reader, &mut self.offset))
         }
@@ -261,7 +280,7 @@ impl<'r, R: Read + Seek> Iterator for ChildrenReader<'r, R> {
 }
 
 fn read_chunk_at<R: Read + Seek>(reader: &mut R, offset: &mut u32) -> Result<Chunk, ReadError> {
-    log::debug!("reading chunk at {}", offset);
+    log::trace!("reading chunk at {}", offset);
     reader.seek(SeekFrom::Start((*offset).into()))?;
     let chunk = Chunk::read(reader)?;
     *offset += chunk.len();
@@ -382,12 +401,34 @@ impl<W: Write + Seek> ChunkWriter<W> {
         Ok(())
     }
 
+    /// Short-hand to opening and child-writer and then a content-writer to that
+    /// child. Useful, if you want to write a child with only content data.
+    pub fn child_content_writer<
+        'w,
+        F: FnMut(&mut ContentWriter<&mut ContentWriter<&'w mut W>>) -> Result<(), WriteError>,
+    >(
+        &'w mut self,
+        chunk_id: ChunkId,
+        mut f: F,
+    ) -> Result<(), WriteError> {
+        self.child_writer(chunk_id, |child_writer| {
+            child_writer.content_writer(|content_writer| f(content_writer))
+        })
+    }
+
     fn write_header(&mut self) -> Result<(), WriteError> {
-        log::debug!("Write header for chunk {:?} to offset {}: content_len = {}, children_len = {}", self.chunk_id, self.offset, self.content_len, self.children_len);
-        
+        log::trace!(
+            "Write header for chunk {:?} to offset {}: content_len = {}, children_len = {}",
+            self.chunk_id,
+            self.offset,
+            self.content_len,
+            self.children_len
+        );
+
         let old_pos = self.writer.seek(SeekFrom::Current(0))?;
-        self.writer.seek(SeekFrom::Start(u64::from(self.offset) + 4))?;
-    
+        self.writer
+            .seek(SeekFrom::Start(u64::from(self.offset) + 4))?;
+
         self.writer.write_u32::<LE>(self.content_len)?;
         self.writer.write_u32::<LE>(self.children_len)?;
 
@@ -432,7 +473,12 @@ impl<W: Write> Write for ContentWriter<W> {
             .ok_or_else(|| IoError::from(ErrorKind::Other))?;
 
         if self.offset > self.end {
-            log::debug!("write {} bytes: offset={}, end={}", n_written, self.offset, self.end);
+            log::trace!(
+                "write {} bytes: offset={}, end={}",
+                n_written,
+                self.offset,
+                self.end
+            );
             self.end = self.offset;
         }
 
@@ -449,7 +495,14 @@ impl<W: Seek> Seek for ContentWriter<W> {
         let new_offset = seek_to(self.offset, self.start, self.end, pos)?;
 
         if new_offset != self.offset {
-            log::debug!("seek: offset={}, start={}, end={}, pos={:?}, new_offset={}", self.offset, self.start, self.end, pos, new_offset);
+            log::trace!(
+                "seek: offset={}, start={}, end={}, pos={:?}, new_offset={}",
+                self.offset,
+                self.start,
+                self.end,
+                pos,
+                new_offset
+            );
             self.writer.seek(SeekFrom::Start(new_offset.into()))?;
             self.offset = new_offset;
         }

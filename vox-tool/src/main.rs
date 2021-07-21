@@ -1,26 +1,18 @@
-use std::{
-    collections::HashSet,
-    convert::TryInto,
-    fs::{
+use std::{collections::HashSet, convert::TryInto, fs::{
         File,
         OpenOptions,
-    },
-    io::Read,
-    path::{
+    }, io::{Read, Write}, path::{
         Path,
         PathBuf,
-    },
-};
+    }};
 
 use color_eyre::eyre::{
     bail,
     Error,
 };
+use image::{RgbaImage, io::Reader as ImageReader};
 use structopt::StructOpt;
-use vox_format::{chunk::{
-        read_main_chunk,
-        ChunkId,
-    }, from_file, writer::main_chunk_writer};
+use vox_format::{Model, Palette, chunk::{Chunk, ChunkId, ChunkWriter, read_main_chunk}, default_palette::DEFAULT_PALETTE, from_file, writer::main_chunk_writer};
 
 /// Tools for inspection and manipulation of MagicaVoxel VOX files.
 #[derive(Debug, StructOpt)]
@@ -46,15 +38,71 @@ enum Args {
         input: PathBuf,
     },
     /// Print all VOX data as debug output.
-    PrintDebug {
-        /// The input file from which the palette will be read.
-        input: PathBuf,        
-    },
-    /// Print the color palette of a VOX file.
-    PrintPalette {
-        /// The input file from which the palette will be read.
+    PrintInfo {
+        /// The input file from which information willbe displayed
         input: PathBuf,
+
+        /// Prints the palette. This will not print the palette if it's the
+        /// default palette. If you want this, use `-P` instead.
+        #[structopt(short = "p", long = "palette")]
+        print_palette: bool,
+
+        /// Prints the palette - even if it's the default palette.
+        #[structopt(short = "P")]
+        print_palette_even_if_default: bool,
+
+        /// Print all models. This overrides anything set with `-m` or `--model`.
+        #[structopt(short = "M", long = "all-models")]
+        print_all_models: bool,
+
+        /// Print only the model with the specified index.
+        #[structopt(short = "m", long = "model")]
+        model_index: Option<usize>,
     },
+    ExportPalette {
+        /// The input file from which the palette will be exported. If omitted, the default palette willbe exported.
+        input: Option<PathBuf>,
+
+        /// The path for the output file. The file format will be guessed using the file extension.
+        #[structopt(short = "o", long = "output")]
+        output: PathBuf,
+    },
+    /* /// Exports a slice of the volume as image.
+    ExportSlice {
+        #[structopt(short = "x")]
+        x: Option<i8>,
+
+        #[structopt(short = "y")]
+        y: Option<i8>,
+
+        #[structopt(short = "z")]
+        z: Option<i8>,
+
+        #[structopt(short = "o", long = "output")]
+        ouptut: PathBuf,
+    },*/
+
+    /// Replaces the palette in a VOX file.
+    ///
+    /// The palette is specified with `--palette` option and must be an image. Regardless of the image's shape, the first 256 pixels
+    /// will be used for the palette.
+    ///
+    /// The images will be converted to RGBA values to be used in the palette.
+    ///
+    /// Note that entry 0 in the palette is special, in that it's always transparent. If you set another color for that pixel, it will be ignored.
+    SetPalette {
+        /// The input file that will have it's palette changed.
+        input: PathBuf,
+
+        /// Path to image containing the palette. This his compatible with `export-palette`. If omitted, the default palette
+        /// will be used.
+        #[structopt(short = "p", long = "palette")]
+        palette: Option<PathBuf>,
+
+        /// The path for the output file. The file format will be guessed using the file extension.
+        #[structopt(short = "o", long = "output")]
+        output: Option<PathBuf>,
+    }
 }
 
 #[derive(Debug)]
@@ -85,11 +133,6 @@ impl StripChunks {
     }
 }
 
-fn default_output_path(input: &Path) -> PathBuf {
-    let ext = input.extension().and_then(|s| s.to_str()).unwrap_or("vox");
-    input.with_extension(format!("stripped.{}", ext))
-}
-
 impl Args {
     fn run(self) -> Result<(), Error> {
         match self {
@@ -114,64 +157,166 @@ impl Args {
 
                 log::debug!("Stripping: {:?}", strip);
 
-                log::debug!("Reading input: {}", input.display());
-                let mut reader = File::open(&input)?;
-                let (main_chunk, version) = read_main_chunk(&mut reader)?;
+                let output = output.unwrap_or_else(|| default_output_path(&input, "stripped"));
 
-                let output = output.unwrap_or_else(|| default_output_path(&input));
-                log::debug!("Writing output: {}", output.display());
-                let writer = OpenOptions::new().create(true).write(true).open(output)?;
-
-                let mut chunks = vec![];
-
-                for r in main_chunk.children(&mut reader) {
-                    let chunk = r?;
-
+                map_chunks(&input, &output, |_reader, chunk, _writer| {
                     if !strip.strip(chunk.id()) {
-                        log::debug!("Keeping chunk: {:?}, content_len={}, children_len={}", chunk.id(), chunk.content_len(), chunk.children_len());
-                        chunks.push(chunk);
+                        Ok(true)
                     }
                     else {
                         log::trace!("Stripping chunk: {:?}", chunk.id());
+                        Ok(false)
+                    }
+                })?;
+            }
+            Self::PrintInfo {
+                input,
+                print_palette,
+                print_palette_even_if_default,
+                print_all_models,
+                model_index,
+            } => {
+                let vox = from_file(input)?;
+
+                println!("VOX version: {}", vox.version);
+
+                if print_all_models {
+                    for (i, model) in vox.models.iter().enumerate() {
+                        print_model(i, model);
+                    }
+                }
+                else if let Some(model_index) = model_index {
+                    if let Some(model) = vox.models.get(model_index) {
+                        print_model(model_index, model);
+                    }
+                    else {
+                        eprintln!("Model with index {} does not exists. There are {} models in this file.", model_index, vox.models.len());
                     }
                 }
 
-                main_chunk_writer(writer, version, |chunk_writer| {
-                    let mut buf = vec![];
-
-                    for chunk in &chunks {
-                        buf.clear();
-                        buf.reserve(chunk.content_len().try_into()?);
-
-                        // FIXME: Handle the error
-                        chunk.content(&mut reader).unwrap().read_to_end(&mut buf)?;
-
-                        chunk_writer.child_writer(chunk.id(), |child_writer| {
-                            child_writer.write_content(&buf)?;
-                            assert_eq!(child_writer.content_len(), chunk.content_len());
-                            Ok(())
-                        })?;
-
-                        if chunk.children_len() != 0 {
-                            todo!("At this point all supported chunk types (except `MAIN`) have no children");
+                if print_palette {
+                    if vox.palette.is_default() && !print_palette_even_if_default {
+                        println!("Palette: default");
+                    }
+                    else {
+                        println!("Palette:");
+                        for (index, color) in vox.palette.iter() {
+                            println!("  - #{}: {:?}", index, color);
                         }
                     }
+                }
+            }
+            Self::ExportPalette { input, output } => {
+                let vox;
+                let palette = if let Some(input) = input {
+                    vox = from_file(input)?; 
+                    &vox.palette
+                }
+                else {
+                    &DEFAULT_PALETTE
+                };
 
-                    Ok(())
+                let image = palette.as_image();
+                image.save(output)?;
+            },
+            Self::SetPalette { input, palette, output } => {
+                let palette = if let Some(palette) = palette {
+                    let image = ImageReader::open(palette)?.decode()?;
+
+                    // TODO: It would be nicer to pass an `ImageBuffer` with any pixel format and then just convert the pixels we need.
+                    let image = image.into_rgba8();
+
+                    Palette::from_image(&image)
+                }
+                else {
+                    DEFAULT_PALETTE
+                };
+
+                let output = output.unwrap_or_else(|| default_output_path(&input, "new-palette"));
+
+                map_chunks(&input, &output, |_reader, chunk, writer| {
+                    if matches!(chunk.id(), ChunkId::Rgba) {
+                        // Replace RGBA chunk
+                        writer.child_content_writer(ChunkId::Rgba, |writer| {
+                            palette.write(writer)
+                        })?;
+
+                        Ok(false)
+                    }
+                    else {
+                        Ok(true)
+                    }
                 })?;
-            }
-            Self::PrintDebug { input } => {
-                let vox = from_file(input)?;
-                println!("{:#?}", vox);
-            }
-            Self::PrintPalette { .. } => {
-                todo!()
-            }
+            },
         }
 
         Ok(())
     }
 }
+
+fn print_model(i: usize, model: &Model) {
+    println!("Model #{}: {:?}", i, model.size);
+
+    for voxel in &model.voxels {
+        println!("  - {:?}: #{}", voxel.point, voxel.color_index);
+    }
+}
+
+fn default_output_path<P: AsRef<Path>>(input: P, postfix: &str) -> PathBuf {
+    let input = input.as_ref();
+    let ext = input.extension().and_then(|s| s.to_str()).unwrap_or("vox");
+    input.with_extension(format!("{}.{}", postfix, ext))
+}
+
+fn map_chunks<P: AsRef<Path>, Q: AsRef<Path>, F: FnMut(&mut File, &Chunk, &mut ChunkWriter<File>) -> Result<bool, vox_format::writer::Error>>(input: P, output: Q, mut f: F) -> Result<(), Error> {
+    let input = input.as_ref();
+    let output = output.as_ref();
+
+    log::debug!("Reading input: {}", input.display());
+    let mut reader = File::open(&input)?;
+    let (main_chunk, version) = read_main_chunk(&mut reader)?;
+
+    log::debug!("Writing output: {}", output.display());
+    let writer = OpenOptions::new().create(true).write(true).open(output)?;
+
+    let mut chunks = vec![];
+
+    for r in main_chunk.children(&mut reader) {
+        let chunk = r?;
+        chunks.push(chunk);
+    }
+
+    main_chunk_writer(writer, version, |chunk_writer| {
+        let mut buf = vec![];
+
+        for chunk in &chunks {
+            if f(&mut reader, chunk, chunk_writer)? {
+                // Copy chunk
+
+                buf.clear();
+                buf.reserve(chunk.content_len().try_into()?);
+
+                chunk.content(&mut reader)?.read_to_end(&mut buf)?;
+
+                chunk_writer.child_content_writer(chunk.id(), |writer| {
+                    writer.write_all(&buf)?;
+                    assert_eq!(writer.len(), chunk.content_len());
+                    Ok(())
+                })?;
+
+                // TODO: If we move the copy function into `vox-format`, we can make use of the fact that we can read/write the children as a blob.
+                if chunk.children_len() != 0 {
+                    todo!("TODO: Copy children. This is not implemented, because at this point all supported chunk types (except `MAIN`) have no children. Please open an issue, if you need this feature.");
+                }
+            }
+        }
+
+        Ok(())
+    })?;
+
+    Ok(())
+}
+
 
 fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();

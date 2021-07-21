@@ -19,3 +19,7 @@ pub use crate::{
         Voxel,
     },
 };
+
+
+#[cfg(feature = "image")]
+pub mod image;
