@@ -1,6 +1,12 @@
-use std::{borrow::Cow, ops::Index};
+use std::{
+    borrow::Cow,
+    ops::Index,
+};
 
-use crate::{default_palette::DEFAULT_PALETTE, reader::VoxBuffer};
+use crate::{
+    default_palette::DEFAULT_PALETTE,
+    reader::VoxBuffer,
+};
 
 #[derive(Clone, Debug)]
 pub struct VoxData {
@@ -122,7 +128,10 @@ impl VoxBuffer for VoxDataBuffer {
     }
 
     fn set_voxel(&mut self, voxel: Voxel) {
-        let model = self.models.last_mut().expect("Expected to have set_model_size called first.");
+        let model = self
+            .models
+            .last_mut()
+            .expect("Expected to have set_model_size called first.");
         model.voxels.push(voxel);
     }
 

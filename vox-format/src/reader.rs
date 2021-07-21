@@ -1,16 +1,35 @@
 use std::{
     fs::File,
-    io::{Cursor, Read, Seek},
+    io::{
+        Cursor,
+        Read,
+        Seek,
+    },
     path::Path,
     usize,
 };
 
-use byteorder::{ReadBytesExt, LE};
+use byteorder::{
+    ReadBytesExt,
+    LE,
+};
 use thiserror::Error;
 
 use crate::{
-    chunk::{read_main_chunk, Chunk, ChunkId},
-    vox::{Color, ColorIndex, Palette, Vector, Version, VoxDataBuffer, Voxel},
+    chunk::{
+        read_main_chunk,
+        Chunk,
+        ChunkId,
+    },
+    vox::{
+        Color,
+        ColorIndex,
+        Palette,
+        Vector,
+        Version,
+        VoxDataBuffer,
+        Voxel,
+    },
     VoxData,
 };
 
@@ -51,13 +70,16 @@ pub trait VoxBuffer {
     fn set_palette(&mut self, palette: Palette);
 }
 
-pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(mut reader: R, buffer: &mut B) -> Result<(), Error> {
+pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
+    mut reader: R,
+    buffer: &mut B,
+) -> Result<(), Error> {
     let (main_chunk, version) = read_main_chunk(&mut reader)?;
 
     buffer.set_version(version);
 
     //print_chunk(&main_chunk, &mut self.reader, 0)?;
-    log::trace!("main chunk: {:#?}", main_chunk);
+    log::debug!("main chunk: {:#?}", main_chunk);
 
     let mut pack_chunk = None;
     let mut size_chunks = vec![];
@@ -92,7 +114,7 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(mut reader: R, buffer: &mut B
         .map(|pack| Ok::<_, Error>(pack.content(&mut reader)?.read_u32::<LE>()? as usize))
         .transpose()?
         .unwrap_or(1);
-    log::trace!("num_models = {}", num_models);
+    log::debug!("num_models = {}", num_models);
 
     if num_models != size_chunks.len() || num_models != xyzi_chunks.len() {
         return Err(Error::InvalidNumberOfSizeAndXyziChunks {
@@ -105,17 +127,17 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(mut reader: R, buffer: &mut B
 
     for (size_chunk, xyzi_chunk) in size_chunks.into_iter().zip(xyzi_chunks) {
         let model_size = Vector::read(&mut size_chunk.content(&mut reader)?)?;
-        log::trace!("model_size = {:?}", model_size);
+        log::debug!("model_size = {:?}", model_size);
         buffer.set_model_size(model_size);
 
         let mut reader = xyzi_chunk.content(&mut reader)?;
 
         let num_voxels = reader.read_u32::<LE>()?;
-        log::trace!("num_voxels = {}", num_voxels);
+        log::debug!("num_voxels = {}", num_voxels);
 
         for _ in 0..num_voxels {
             let voxel = Voxel::read(&mut reader)?;
-            log::trace!("voxel = {:?}", voxel);
+            log::debug!("voxel = {:?}", voxel);
             buffer.set_voxel(voxel);
         }
     }
@@ -185,12 +207,11 @@ impl Vector {
 #[cfg(test)]
 mod tests {
     // TODO: Write some proper test with some better test files.
-    
+
     use std::io::Cursor;
 
-    use crate::vox::VoxDataBuffer;
-
     pub use super::*;
+    use crate::vox::VoxDataBuffer;
 
     #[test]
     fn it_works_perfectly_as_intended_lol() {

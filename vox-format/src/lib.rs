@@ -5,6 +5,17 @@ pub mod vox;
 pub mod writer;
 
 pub use crate::{
-    reader::{from_file, from_reader, from_slice},
-    vox::{Color, Model, Palette, Vector, VoxData, Voxel},
+    reader::{
+        from_file,
+        from_reader,
+        from_slice,
+    },
+    vox::{
+        Color,
+        Model,
+        Palette,
+        Vector,
+        VoxData,
+        Voxel,
+    },
 };

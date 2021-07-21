@@ -1,14 +1,29 @@
 use std::{
     convert::TryInto,
-    io::{Error as IoError, Read, Seek, SeekFrom, Write},
+    io::{
+        Error as IoError,
+        ErrorKind,
+        Read,
+        Seek,
+        SeekFrom,
+        Write,
+    },
     str::FromStr,
     u64,
 };
 
-use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use byteorder::{
+    ReadBytesExt,
+    WriteBytesExt,
+    LE,
+};
 use thiserror::Error;
 
-use crate::{reader::Error as ReadError, vox::Version, writer::Error as WriteError};
+use crate::{
+    reader::Error as ReadError,
+    vox::Version,
+    writer::Error as WriteError,
+};
 
 #[derive(Debug, Error)]
 #[error("Failed to parse chunk ID: {0}")]
@@ -38,6 +53,10 @@ impl ChunkId {
         let id: [u8; 4] = self.clone().into();
         Ok(writer.write_all(&id)?)
     }
+
+    pub fn is_supported(&self) -> bool {
+        !matches!(self, ChunkId::Unsupported(_))
+    }
 }
 
 ///
@@ -46,7 +65,6 @@ impl ChunkId {
 ///  - Implement undocumented types[1]
 ///
 /// [1] https://github.com/aiekick/MagicaVoxel_File_Writer/blob/master/VoxWriter.cpp
-///
 impl From<[u8; 4]> for ChunkId {
     fn from(value: [u8; 4]) -> Self {
         match &value {
@@ -105,11 +123,15 @@ impl Chunk {
         let offset = reader.stream_position()? as u32;
 
         let id = ChunkId::read(&mut reader)?;
-        log::trace!("id = {:?}", id);
+        log::debug!("read chunk at {}: {:?}", offset, id);
 
         let content_len = reader.read_u32::<LE>()?;
         let children_len = reader.read_u32::<LE>()?;
-        log::trace!("content_len = {}, children_len = {}", content_len, children_len);
+        log::debug!(
+            "content_len = {}, children_len = {}",
+            content_len,
+            children_len
+        );
 
         Ok(Chunk {
             offset,
@@ -119,12 +141,16 @@ impl Chunk {
         })
     }
 
-    pub fn content<'r, R: Read + Seek>(&self, reader: &'r mut R) -> Result<ContentReader<'r, R>, ReadError> {
+    pub fn content<'r, R: Read + Seek>(
+        &self,
+        reader: &'r mut R,
+    ) -> Result<ContentReader<'r, R>, ReadError> {
         let offset = self.content_offset();
+        log::debug!("content reader: id={:?}, offset={}", self.id, offset);
         reader.seek(SeekFrom::Start(offset as u64))?;
         Ok(ContentReader {
             reader,
-            start_offset: offset,
+            start: offset,
             offset,
             end: offset + self.content_len,
         })
@@ -132,6 +158,8 @@ impl Chunk {
 
     pub fn children<'r, R: Read + Seek + 'r>(&self, reader: &'r mut R) -> ChildrenReader<'r, R> {
         let offset = self.children_offset();
+
+        log::debug!("children reader: offset={}, end={}", offset, offset + self.children_len);
 
         ChildrenReader {
             reader,
@@ -165,34 +193,50 @@ impl Chunk {
     }
 
     pub fn len(&self) -> u32 {
-        self.content_len + self.children_len + 12
+        let n = self.content_len + self.children_len + 12;
+        //log::debug!("chunk {:?} len = {}", self.id, n);
+        n
     }
 }
 
 pub struct ContentReader<'r, R> {
     reader: &'r mut R,
-    #[allow(dead_code)]
-    start_offset: u32,
     offset: u32,
+    start: u32,
     end: u32,
 }
 
 impl<'r, R: Read> Read for ContentReader<'r, R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, IoError> {
+        log::debug!("read: offset={}, start={}, end={}", self.offset, self.start, self.end);
         if self.offset < self.end {
             let n_at_most = ((self.end - self.offset) as usize).min(buf.len());
+            log::debug!("read: offset={}, end={}, n_at_most={}", self.offset, self.end, n_at_most);
             let n_read = self.reader.read(&mut buf[..n_at_most])?;
+            log::debug!("read: n_read={}", n_read);
             self.offset += n_read as u32;
             Ok(n_read)
-        } else {
+        }
+        else {
             Ok(0)
         }
     }
 }
 
 impl<'r, R: Seek> Seek for ContentReader<'r, R> {
-    fn seek(&mut self, _pos: SeekFrom) -> std::io::Result<u64> {
-        todo!()
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64, IoError> {
+        let new_offset = seek_to(self.offset, self.start, self.end, pos)?;
+
+        if new_offset != self.offset {
+            log::debug!("seek: offset={}, start={}, end={}, pos={:?}, new_offset={}", self.offset, self.start, self.end, pos, new_offset);
+
+            self.offset = new_offset;
+
+            // TODO: Those seeks can just use `pos`.
+            self.reader.seek(SeekFrom::Start(self.offset.into()))?;
+        }
+        
+        Ok((self.offset - self.start).into())
     }
 }
 
@@ -206,16 +250,18 @@ impl<'r, R: Read + Seek> Iterator for ChildrenReader<'r, R> {
     type Item = Result<Chunk, ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        log::debug!("read next child: offset={}, end={}", self.offset, self.end);
         if self.offset < self.end {
             Some(read_chunk_at(self.reader, &mut self.offset))
-        } else {
+        }
+        else {
             None
         }
     }
 }
 
 fn read_chunk_at<R: Read + Seek>(reader: &mut R, offset: &mut u32) -> Result<Chunk, ReadError> {
-    log::trace!("reading chunk at {}", offset);
+    log::debug!("reading chunk at {}", offset);
     reader.seek(SeekFrom::Start((*offset).into()))?;
     let chunk = Chunk::read(reader)?;
     *offset += chunk.len();
@@ -245,9 +291,15 @@ pub fn read_main_chunk<R: Read + Seek>(mut reader: R) -> Result<(Chunk, Version)
 
 #[derive(Debug)]
 pub struct ChunkWriter<W> {
+    chunk_id: ChunkId,
+
     writer: W,
+
+    /// Offset for the chunk. Points at the Chunk ID.
     offset: u64,
+
     content_len: u32,
+
     children_len: u32,
 }
 
@@ -255,10 +307,12 @@ impl<W: Write + Seek> ChunkWriter<W> {
     fn new(mut writer: W, chunk_id: ChunkId) -> Result<Self, WriteError> {
         chunk_id.write(&mut writer)?;
 
-        // Leave 8 bytes for `content_len` and `children_len`. Remember offset to write values later.
-        let offset = writer.seek(SeekFrom::Current(4))?;
+        // Leave 8 bytes for `content_len` and `children_len`. Remember offset to write
+        // values later.
+        let offset = writer.seek(SeekFrom::Current(8))? - 12;
 
         Ok(Self {
+            chunk_id,
             writer,
             offset,
             content_len: 0,
@@ -266,22 +320,41 @@ impl<W: Write + Seek> ChunkWriter<W> {
         })
     }
 
-    pub fn content_writer<'w, F: FnMut(&mut ContentWriter<&'w mut W>) -> Result<(), WriteError>>(&'w mut self, mut f: F) -> Result<(), WriteError> {
+    pub fn id(&self) -> ChunkId {
+        self.chunk_id
+    }
+
+    pub fn offset(&self) -> u64 {
+        self.offset
+    }
+
+    pub fn content_len(&self) -> u32 {
+        self.content_len
+    }
+
+    pub fn children_lne(&self) -> u32 {
+        self.children_len
+    }
+
+    pub fn content_writer<'w, F: FnMut(&mut ContentWriter<&'w mut W>) -> Result<(), WriteError>>(
+        &'w mut self,
+        mut f: F,
+    ) -> Result<(), WriteError> {
         /*if self.content_len != 0 {
             panic!("Chunk content already written: content_len = {}", self.content_len);
         }*/
         if self.children_len != 0 {
-            panic!("Chunk children already written: children_len = {}", self.children_len);
+            panic!(
+                "Chunk children already written: children_len = {}",
+                self.children_len
+            );
         }
 
-        let mut content_writer = ContentWriter {
-            writer: &mut self.writer,
-            len: 0,
-        };
+        let mut content_writer = ContentWriter::new(&mut self.writer)?;
 
         f(&mut content_writer)?;
 
-        self.content_len = content_writer.len.try_into()?;
+        self.content_len = content_writer.len();
 
         Ok(())
     }
@@ -293,20 +366,16 @@ impl<W: Write + Seek> ChunkWriter<W> {
         })
     }
 
-    pub fn child_writer<'w, F: FnMut(&mut ChildWriter<'w, W>) -> Result<(), WriteError>>(&'w mut self, chunk_id: ChunkId, mut f: F) -> Result<(), WriteError> {
-        if self.children_len != 0 {
-            panic!("Chunk children already written: children_len = {}", self.children_len);
-        }
-
-        let mut child_writer = ChildWriter::new(
-            ContentWriter {
-                writer: &mut self.writer,
-                len: 0,
-            },
-            chunk_id,
-        )?;
+    pub fn child_writer<'w, F: FnMut(&mut ChildWriter<'w, W>) -> Result<(), WriteError>>(
+        &'w mut self,
+        chunk_id: ChunkId,
+        mut f: F,
+    ) -> Result<(), WriteError> {
+        let mut child_writer = ChildWriter::new(ContentWriter::new(&mut self.writer)?, chunk_id)?;
 
         f(&mut child_writer)?;
+
+        self.children_len = child_writer.writer.len();
 
         child_writer.write_header()?;
 
@@ -314,8 +383,11 @@ impl<W: Write + Seek> ChunkWriter<W> {
     }
 
     fn write_header(&mut self) -> Result<(), WriteError> {
-        let old_pos = self.writer.seek(SeekFrom::Start(self.offset as u64 + 4))?;
-
+        log::debug!("Write header for chunk {:?} to offset {}: content_len = {}, children_len = {}", self.chunk_id, self.offset, self.content_len, self.children_len);
+        
+        let old_pos = self.writer.seek(SeekFrom::Current(0))?;
+        self.writer.seek(SeekFrom::Start(u64::from(self.offset) + 4))?;
+    
         self.writer.write_u32::<LE>(self.content_len)?;
         self.writer.write_u32::<LE>(self.children_len)?;
 
@@ -328,24 +400,61 @@ impl<W: Write + Seek> ChunkWriter<W> {
 #[derive(Debug)]
 pub struct ContentWriter<W> {
     writer: W,
-    len: usize,
+    offset: u32,
+    start: u32,
+    end: u32,
+}
+
+impl<W: Seek> ContentWriter<W> {
+    fn new(mut writer: W) -> Result<Self, WriteError> {
+        let offset = writer.stream_position()?.try_into()?;
+        Ok(Self {
+            writer,
+            offset,
+            start: offset,
+            end: offset,
+        })
+    }
+
+    pub fn len(&self) -> u32 {
+        self.end - self.start
+    }
 }
 
 impl<W: Write> Write for ContentWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, IoError> {
         let n_written = self.writer.write(buf)?;
-        self.len += n_written;
+
+        self.offset = n_written
+            .try_into()
+            .ok()
+            .and_then(|n| self.offset.checked_add(n))
+            .ok_or_else(|| IoError::from(ErrorKind::Other))?;
+
+        if self.offset > self.end {
+            log::debug!("write {} bytes: offset={}, end={}", n_written, self.offset, self.end);
+            self.end = self.offset;
+        }
+
         Ok(n_written)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        todo!()
+        self.writer.flush()
     }
 }
 
 impl<W: Seek> Seek for ContentWriter<W> {
-    fn seek(&mut self, _pos: SeekFrom) -> std::io::Result<u64> {
-        todo!()
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64, IoError> {
+        let new_offset = seek_to(self.offset, self.start, self.end, pos)?;
+
+        if new_offset != self.offset {
+            log::debug!("seek: offset={}, start={}, end={}, pos={:?}, new_offset={}", self.offset, self.start, self.end, pos, new_offset);
+            self.writer.seek(SeekFrom::Start(new_offset.into()))?;
+            self.offset = new_offset;
+        }
+
+        Ok((self.offset - self.start).into())
     }
 }
 
@@ -363,4 +472,38 @@ pub fn chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Result<(),
     chunk_writer.write_header()?;
 
     Ok(())
+}
+
+#[derive(Debug, Error)]
+#[error("The argument {pos:?} to seek is invalid.")]
+struct InvalidSeek {
+    current: u32,
+    start: u32,
+    end: u32,
+    pos: SeekFrom,
+}
+
+fn seek_to(current: u32, start: u32, end: u32, pos: SeekFrom) -> Result<u32, IoError> {
+    let (offset, delta) = match pos {
+        SeekFrom::Current(pos) => (current, Some(pos)),
+        SeekFrom::Start(pos) => (start, pos.try_into().ok()),
+        SeekFrom::End(pos) => (end, Some(pos)),
+    };
+
+    let offset = i64::from(offset);
+    let new_pos: Option<u32> = delta
+        .and_then(|d| offset.checked_add(d))
+        .and_then(|p| p.try_into().ok());
+
+    new_pos.ok_or_else(|| {
+        IoError::new(
+            ErrorKind::Other,
+            InvalidSeek {
+                current,
+                start,
+                end,
+                pos,
+            },
+        )
+    })
 }

@@ -1,15 +1,29 @@
 use std::{
     fs::OpenOptions,
-    io::{Cursor, Seek, Write},
+    io::{
+        Cursor,
+        Seek,
+        Write,
+    },
     path::Path,
 };
 
-use byteorder::{WriteBytesExt, LE};
+use byteorder::{
+    WriteBytesExt,
+    LE,
+};
 use thiserror::Error;
 
 use crate::{
-    chunk::{chunk_writer, ChunkId, ChunkWriter},
-    vox::{Version, VoxData},
+    chunk::{
+        chunk_writer,
+        ChunkId,
+        ChunkWriter,
+    },
+    vox::{
+        Version,
+        VoxData,
+    },
 };
 
 #[derive(Debug, Error)]
@@ -34,7 +48,11 @@ pub fn write_file_header<W: Write>(mut writer: W, version: Version) -> Result<()
     Ok(())
 }
 
-pub fn main_chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Result<(), Error>>(mut writer: W, version: Version, f: F) -> Result<(), Error> {
+pub fn main_chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Result<(), Error>>(
+    mut writer: W,
+    version: Version,
+    f: F,
+) -> Result<(), Error> {
     write_file_header(&mut writer, version)?;
 
     chunk_writer(writer, f, ChunkId::Main)
