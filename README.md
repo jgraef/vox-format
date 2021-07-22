@@ -86,22 +86,18 @@ vox-tool --help
    - [x] `mint`
    - [x] `nalgebra`
    - [x] `serde`
- - [ ] Write tests:
+ - [x] Write tests:
    - [x] Read single model
    - [x] Read multiple models
    - [x] Read custom palette
-   - [ ] Read materials
    - [x] ColorIndex behaviour.
- - [ ] Is material ID a color index?
- - [ ] Move `copy_map_chunks` to `vox_format::chunk`.
-   - [ ] Also copy children with `copy_map_chunks`.
  - [ ] More documentation:
    - [ ] docs for all items: `#![deny(missing_docs)]`
    - [ ] Some more examples for function docs
    - [ ] proof-read docs
    - [ ] Example programs (`cargo run --example`)
    - [ ] Check `vox-tool` usage
- - [ ] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
+ - [x] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
  - [ ] Proper iterator types, instead of `impl Iterator`.
  - [ ] Remove `dev-dependencies`. They're only occasionaly used during debugging.
  - [ ] Is `vox-tool` ready?
@@ -110,6 +106,10 @@ vox-tool --help
 ## After first release
 
  - [_] Finish implementing undocumented chunk IDs.
+ - [ ] Move `copy_map_chunks` to `vox_format::chunk` and implement copying children.
+ - [_] Write tests:
+   - [ ] Read materials
+   - [ ] Material ID behaviour (is it just a `ColorIndex`?)
 
 # License
 

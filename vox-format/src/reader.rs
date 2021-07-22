@@ -341,7 +341,14 @@ mod tests {
         )))
         .unwrap();
 
-        let color_index = vox.models.get(0).unwrap().voxels.first().unwrap().color_index;
+        let color_index = vox
+            .models
+            .get(0)
+            .unwrap()
+            .voxels
+            .first()
+            .unwrap()
+            .color_index;
         assert_eq!(vox.palette[color_index], Color::light_blue());
     }
 }

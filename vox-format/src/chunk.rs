@@ -187,10 +187,7 @@ impl Chunk {
     }
 
     /// Creates a reader for its contents.
-    pub fn content<'r, R: Read + Seek>(
-        &self,
-        reader: &'r mut R,
-    ) -> Result<ContentReader<'r, R>, ReadError> {
+    pub fn content<R: Read + Seek>(&self, mut reader: R) -> Result<ContentReader<R>, ReadError> {
         let offset = self.content_offset();
         log::trace!("content reader: id={:?}, offset={}", self.id, offset);
         reader.seek(SeekFrom::Start(offset as u64))?;
@@ -202,10 +199,7 @@ impl Chunk {
         })
     }
 
-    pub fn read_content_to_vec<R: Read + Seek>(
-        &self,
-        reader: &mut R,
-    ) -> Result<Vec<u8>, ReadError> {
+    pub fn read_content_to_vec<R: Read + Seek>(&self, reader: R) -> Result<Vec<u8>, ReadError> {
         let mut buf = vec![];
         self.content(reader)?.read_to_end(&mut buf)?;
         Ok(buf)
@@ -215,7 +209,7 @@ impl Chunk {
     /// `Result<Chunk, _>`, so you'll need to handle the error first.
     /// Each child then is another `Chunk` struct that can be used to read
     /// contents or children.
-    pub fn children<'r, R: Read + Seek + 'r>(&self, reader: &'r mut R) -> ChildrenReader<'r, R> {
+    pub fn children<R: Read + Seek>(&self, reader: R) -> ChildrenReader<R> {
         let offset = self.children_offset();
 
         log::trace!(
@@ -280,14 +274,14 @@ impl Chunk {
 }
 
 /// A reader for a chunk's contents.
-pub struct ContentReader<'r, R> {
-    reader: &'r mut R,
+pub struct ContentReader<R> {
+    reader: R,
     offset: u32,
     start: u32,
     end: u32,
 }
 
-impl<'r, R: Read> Read for ContentReader<'r, R> {
+impl<R: Read> Read for ContentReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, IoError> {
         log::trace!(
             "read: offset={}, start={}, end={}",
@@ -314,7 +308,7 @@ impl<'r, R: Read> Read for ContentReader<'r, R> {
     }
 }
 
-impl<'r, R: Seek> Seek for ContentReader<'r, R> {
+impl<R: Seek> Seek for ContentReader<R> {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, IoError> {
         let new_offset = seek_to(self.offset, self.start, self.end, pos)?;
 
@@ -338,19 +332,19 @@ impl<'r, R: Seek> Seek for ContentReader<'r, R> {
 }
 
 /// An iterator over a chunk's children.
-pub struct ChildrenReader<'r, R> {
-    reader: &'r mut R,
+pub struct ChildrenReader<R> {
+    reader: R,
     offset: u32,
     end: u32,
 }
 
-impl<'r, R: Read + Seek> Iterator for ChildrenReader<'r, R> {
+impl<R: Read + Seek> Iterator for ChildrenReader<R> {
     type Item = Result<Chunk, ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         log::trace!("read next child: offset={}, end={}", self.offset, self.end);
         if self.offset < self.end {
-            Some(read_chunk_at(self.reader, &mut self.offset))
+            Some(read_chunk_at(&mut self.reader, &mut self.offset))
         }
         else {
             None
@@ -359,7 +353,7 @@ impl<'r, R: Read + Seek> Iterator for ChildrenReader<'r, R> {
 }
 
 /// Reads a chunk from `reader` at the specified offset.
-pub fn read_chunk_at<R: Read + Seek>(reader: &mut R, offset: &mut u32) -> Result<Chunk, ReadError> {
+pub fn read_chunk_at<R: Read + Seek>(mut reader: R, offset: &mut u32) -> Result<Chunk, ReadError> {
     log::trace!("reading chunk at {}", offset);
     reader.seek(SeekFrom::Start((*offset).into()))?;
     let chunk = Chunk::read(reader)?;
