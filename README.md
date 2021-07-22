@@ -77,26 +77,27 @@ vox-tool --help
 
 # TODO
 
- - [_] Support for undocumented chunk IDs. `PACK` is not used as it seems.
- - [_] Integrations:
-   - [X]: `building-blocks`
-   - [X]: `image`
-   - [_]: `palette`
-   - [_]: `mint` or `nalgebra`?
-   - [_]: `serde`
- - [_] Write tests:
-   - [X] Read single model
-   - [X] Read multiple models
-   - [X] Read custom palette
-   - [_] Read materials
-   - [_] ColorIndex behaviour.
- - [_] Is material ID a color index?
- - [_] Move `copy_map_chunks` to `vox_format::chunk`.
-   - [_] Also copy children with `copy_map_chunks`.
- - [_] More documentation:
-   - [_] docs for all items: `#![deny(missing_docs)]`
-   - [_] more examples
- - [_] Some methods in `Chunk` take `&mut W` instead of `W` as argument.
+ - [ ] Support for undocumented chunk IDs. `PACK` is not used as it seems.
+ - [ ] Integrations:
+   - [x] `building-blocks`
+   - [x] `image`
+   - [ ] `palette`
+   - [ ] `mint` or `nalgebra`?
+   - [ ] `serde`
+ - [ ] Write tests:
+   - [x] Read single model
+   - [x] Read multiple models
+   - [x] Read custom palette
+   - [ ] Read materials
+   - [ ] ColorIndex behaviour.
+ - [ ] Is material ID a color index?
+ - [ ] Move `copy_map_chunks` to `vox_format::chunk`.
+   - [ ] Also copy children with `copy_map_chunks`.
+ - [ ] More documentation:
+   - [ ] docs for all items: `#![deny(missing_docs)]`
+   - [ ] more examples
+   - [ ] proof-read docs
+ - [ ] Some methods in `Chunk` take `&mut W` instead of `W` as argument.
 
 # License
 
