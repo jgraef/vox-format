@@ -77,8 +77,17 @@ vox-tool --help
 
 # TODO
 
- - Integrate into `building-blocks`.
- - Write tests
+ - [_] Integrate into `building-blocks`.
+ - [_] Write tests:
+   - [_] Read single model
+   - [_] Read multiple modles
+   - [_] Read custom palette
+   - [_] Read materials
+   - [_] ColorIndex behaviour.
+ - [_] Is material ID a color index?
+ - [_] Move `copy_map_chunks` to `vox_format::chunk`.
+ - [_] Also copy children with `copy_map_chunks`.
+ - [_] More documentation: add `#![deny(missing_docs)]`.
 
 # License
 

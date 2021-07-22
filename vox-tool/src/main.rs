@@ -190,7 +190,7 @@ impl Args {
 
                 let output = output.unwrap_or_else(|| default_output_path(&input, "stripped"));
 
-                map_chunks(&input, &output, |_reader, chunk, _writer| {
+                copy_map_chunks(&input, &output, |_reader, chunk, _writer| {
                     if !strip.strip(chunk.id()) {
                         Ok(true)
                     }
@@ -270,7 +270,7 @@ impl Args {
 
                 let output = output.unwrap_or_else(|| default_output_path(&input, "new-palette"));
 
-                map_chunks(&input, &output, |_reader, chunk, writer| {
+                copy_map_chunks(&input, &output, |_reader, chunk, writer| {
                     if matches!(chunk.id(), ChunkId::Rgba) {
                         // Replace RGBA chunk
                         writer
@@ -303,7 +303,7 @@ fn default_output_path<P: AsRef<Path>>(input: P, postfix: &str) -> PathBuf {
     input.with_extension(format!("{}.{}", postfix, ext))
 }
 
-fn map_chunks<
+fn copy_map_chunks<
     P: AsRef<Path>,
     Q: AsRef<Path>,
     F: FnMut(&mut File, &Chunk, &mut ChunkWriter<File>) -> Result<bool, vox_format::writer::Error>,

@@ -283,7 +283,6 @@ impl<'r, R: Seek> Seek for ContentReader<'r, R> {
 
             self.offset = new_offset;
 
-            // TODO: Those seeks can just use `pos`.
             self.reader.seek(SeekFrom::Start(self.offset.into()))?;
         }
 
