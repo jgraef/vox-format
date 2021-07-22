@@ -87,7 +87,9 @@ vox-tool --help
  - [_] Is material ID a color index?
  - [_] Move `copy_map_chunks` to `vox_format::chunk`.
  - [_] Also copy children with `copy_map_chunks`.
- - [_] More documentation: add `#![deny(missing_docs)]`.
+ - [_] More documentation:
+   - [_] docs for all items: `#![deny(missing_docs)]`
+   - [_] more examples
 
 # License
 

@@ -343,7 +343,6 @@ fn copy_map_chunks<
 
                 chunk_writer.child_content_writer(chunk.id(), |writer| {
                     writer.write_all(&buf)?;
-                    assert_eq!(writer.len(), chunk.content_len());
                     Ok(())
                 })?;
 

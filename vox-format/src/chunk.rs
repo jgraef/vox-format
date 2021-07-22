@@ -66,7 +66,7 @@ impl ChunkId {
     }
 
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
-        let id: [u8; 4] = self.clone().into();
+        let id: [u8; 4] = (*self).into();
         Ok(writer.write_all(&id)?)
     }
 
@@ -229,6 +229,11 @@ impl Chunk {
     /// children and header.
     pub fn len(&self) -> u32 {
         self.content_len + self.children_len + 12
+    }
+
+    /// Returns `true` if the chunks has neither content nor children, `false` otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.content_len == 0 && self.children_len == 0
     }
 }
 
@@ -509,7 +514,7 @@ impl<W: Write + Seek> ChunkWriter<W> {
 
         let old_pos = self.writer.seek(SeekFrom::Current(0))?;
         self.writer
-            .seek(SeekFrom::Start(u64::from(self.offset) + 4))?;
+            .seek(SeekFrom::Start(self.offset + 4))?;
 
         self.writer.write_u32::<LE>(self.content_len)?;
         self.writer.write_u32::<LE>(self.children_len)?;
@@ -541,7 +546,7 @@ impl<W: Seek> ContentWriter<W> {
         })
     }
 
-    pub fn len(&self) -> u32 {
+    fn len(&self) -> u32 {
         self.end - self.start
     }
 }

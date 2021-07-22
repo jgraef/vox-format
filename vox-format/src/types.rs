@@ -153,7 +153,7 @@ impl Palette {
     }
 
     // TODO: Return a struct here
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (ColorIndex, Color)> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = (ColorIndex, Color)> + '_ {
         self.colors
             .iter()
             .enumerate()
@@ -203,7 +203,7 @@ impl MaterialPalette {
     }
 
     // TODO: Return a struct here
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (ColorIndex, &'a Material)> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = (ColorIndex, &Material)> {
         self.materials
             .iter()
             .map(|(color_index, material)| (*color_index, material))
