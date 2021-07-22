@@ -80,12 +80,14 @@ vox-tool --help
 ## For first release
 
  - [x] Reading of undocumented chunk IDs.
- - [ ] Integrations:
+ - [x] Integrations:
    - [x] `building-blocks`
    - [x] `image`
-   - [ ] `palette`
-   - [ ] `mint` or `nalgebra`?
-   - [ ] `serde`
+   - [x] `palette`
+   - [x] `mint`
+   - [x] `nalgebra`
+   - [x] `serde`
+ - [ ] `building-blocks` is a path-dependency right now. What's the diff to the last release?
  - [ ] Write tests:
    - [x] Read single model
    - [x] Read multiple models
@@ -102,6 +104,7 @@ vox-tool --help
    - [ ] Example programs (`cargo run --example`)
  - [ ] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
  - [ ] Proper iterator types, instead of `impl Iterator`.
+ - [ ] Remove `dev-dependencies`. They're only occasionaly used during debugging.
 
 
 ## After first release

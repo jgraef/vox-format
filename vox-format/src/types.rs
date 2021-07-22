@@ -19,6 +19,11 @@ use byteorder::{
     WriteBytesExt,
     LE,
 };
+#[cfg(feature = "serialize")]
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use thiserror::Error;
 
 use crate::{
@@ -54,12 +59,14 @@ impl Version {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Model {
     pub size: Size,
     pub voxels: Vec<Voxel>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Voxel {
     pub point: Point,
     pub color_index: ColorIndex,
@@ -88,6 +95,7 @@ impl Voxel {
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Vector<T> {
     pub x: T,
     pub y: T,
@@ -157,7 +165,13 @@ pub type Point = Vector<i8>;
 pub type Size = Vector<u32>;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 pub struct Palette {
+    #[cfg_attr(feature = "serialize", serde(with = "serde_big_array::BigArray"))]
     pub colors: [Color; 256],
 }
 
@@ -212,6 +226,11 @@ impl Index<ColorIndex> for Palette {
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 pub struct MaterialPalette {
     /// TODO: Does the material ID correspond to a ColorIndex?
     materials: HashMap<ColorIndex, Material>,
@@ -239,6 +258,7 @@ impl MaterialPalette {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -301,6 +321,11 @@ impl From<[u8; 4]> for Color {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 pub struct ColorIndex(u8);
 
 impl ColorIndex {
@@ -343,6 +368,7 @@ impl fmt::Display for ColorIndex {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Material {
     pub ty: MaterialType,
     pub weight: f32,
@@ -399,9 +425,14 @@ impl Material {
     }
 }
 
-#[derive(Debug, Error)]
-#[error("Invalid material type: {0}")]
-pub struct MaterialTryFromError(pub u8);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+pub enum MaterialType {
+    Diffuse,
+    Metal,
+    Glass,
+    Emissive,
+}
 
 impl TryFrom<u8> for MaterialType {
     type Error = MaterialTryFromError;
@@ -442,15 +473,12 @@ impl MaterialType {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum MaterialType {
-    Diffuse,
-    Metal,
-    Glass,
-    Emissive,
-}
+#[derive(Debug, Error)]
+#[error("Invalid material type: {0}")]
+pub struct MaterialTryFromError(pub u8);
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Transform {
     pub node_id: u32,
     pub attributes: Attributes,
@@ -496,6 +524,7 @@ impl Transform {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Group {
     pub node_id: u32,
     pub attributes: Attributes,
@@ -522,6 +551,7 @@ impl Group {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Shape {
     pub node_id: u32,
     pub attributes: Attributes,
@@ -537,6 +567,7 @@ impl Shape {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Layer {
     pub node_id: u32,
     pub attributes: Attributes,
@@ -554,6 +585,11 @@ impl Layer {
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 pub struct Attributes {
     inner: HashMap<String, String>,
 }

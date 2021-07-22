@@ -24,6 +24,10 @@ log = "0.4"
 version = "0.23"
 optional = true
 
+[dependencies.palette]
+version = "0.6"
+optional = true
+
 [dependencies.building_blocks_core]
 version = "0.7"
 path = "../../building-blocks/crates/building_blocks_core"
@@ -34,12 +38,30 @@ version = "0.7"
 path = "../../building-blocks/crates/building_blocks_storage"
 optional = true
 
+[dependencies.mint]
+version = "0.5"
+optional = true
+
+[dependencies.nalgebra]
+version = "0.28"
+optional = true
+
+[dependencies.serde]
+version = "1.0"
+optional = true
+features = ["derive"]
+
+[dependencies.serde-big-array]
+version = "0.3"
+optional = true
+features = ["const-generics"]
+
 [dev-dependencies]
 pretty_env_logger = "0.4"
 dotenv = "0.15"
 
 [features]
 default = []
-#default = ["full"]
-full = ["image", "building-blocks"]
+full = ["image", "building-blocks", "mint", "nalgebra", "serialize"]
 building-blocks = ["building_blocks_storage", "building_blocks_core"]
+serialize = ["serde", "serde-big-array"]
