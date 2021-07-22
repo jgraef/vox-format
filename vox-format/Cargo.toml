@@ -10,6 +10,10 @@ homepage = "https://github.com/jgraef/vox-format"
 repository = "https://github.com/jgraef/vox-format"
 readme = "REAMDE.md"
 categories = ["encoding", "game-development", "graphics", "multimedia::encoding", "parser-implementations", "rendering::data-formats"]
+keywords = ["voxel"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 byteorder = "1.4"
@@ -20,6 +24,20 @@ log = "0.4"
 version = "0.23"
 optional = true
 
+[dependencies.building_blocks_core]
+version = "0.7"
+path = "../../building-blocks/crates/building_blocks_core"
+optional = true
+
+[dependencies.building_blocks_storage]
+version = "0.7"
+path = "../../building-blocks/crates/building_blocks_storage"
+optional = true
+
 [dev-dependencies]
 pretty_env_logger = "0.4"
 dotenv = "0.15"
+
+[features]
+default = []
+building-blocks = ["building_blocks_storage", "building_blocks_core"]

@@ -61,3 +61,6 @@ pub use crate::{
 
 #[cfg(feature = "image")]
 pub mod image;
+
+#[cfg(feature = "building-blocks")]
+pub mod building_blocks;

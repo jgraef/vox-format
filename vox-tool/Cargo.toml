@@ -10,6 +10,7 @@ homepage = "https://github.com/jgraef/vox-format"
 repository = "https://github.com/jgraef/vox-format"
 readme = "REAMDE.md"
 categories = ["command-line-utilities", "encoding", "game-development", "graphics", "multimedia::encoding", "parser-implementations", "rendering::data-formats"]
+keywords = ["voxel"]
 
 [dependencies]
 log = "0.4"
