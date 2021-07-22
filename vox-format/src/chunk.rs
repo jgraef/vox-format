@@ -63,6 +63,10 @@ pub enum ChunkId {
     NTrn,
     NGrp,
     NShp,
+    Layr,
+    Matl,
+    RObj,
+    RCam,
 
     /// Unsupported chunk ID
     Unsupported([u8; 4]),
@@ -99,7 +103,11 @@ impl From<[u8; 4]> for ChunkId {
             b"VOX " => Self::Vox,
             b"nTRN" => Self::NTrn,
             b"nGRP" => Self::NGrp,
-            b"nShp" => Self::NShp,
+            b"nSHP" => Self::NShp,
+            b"LAYR" => Self::Layr,
+            b"MATL" => Self::Matl,
+            b"rOBJ" => Self::RObj,
+            b"rCAM" => Self::RCam,
             _ => Self::Unsupported(value),
         }
     }
@@ -119,6 +127,10 @@ impl From<ChunkId> for [u8; 4] {
             ChunkId::NTrn => *b"nTRN",
             ChunkId::NGrp => *b"nGRP",
             ChunkId::NShp => *b"nSHP",
+            ChunkId::Layr => *b"LAYR",
+            ChunkId::Matl => *b"MATL",
+            ChunkId::RObj => *b"rOBJ",
+            ChunkId::RCam => *b"rCAM",
             ChunkId::Unsupported(value) => value,
         }
     }
@@ -190,7 +202,10 @@ impl Chunk {
         })
     }
 
-    pub fn read_content_to_vec<'r, R: Read + Seek>(&self, reader: &'r mut R) -> Result<Vec<u8>, ReadError> {
+    pub fn read_content_to_vec<R: Read + Seek>(
+        &self,
+        reader: &mut R,
+    ) -> Result<Vec<u8>, ReadError> {
         let mut buf = vec![];
         self.content(reader)?.read_to_end(&mut buf)?;
         Ok(buf)

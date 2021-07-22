@@ -243,7 +243,7 @@ pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
-    
+
     /// Alpha channel, opacity. `0` is fully transparent, `255` is fully opaque.
     pub a: u8,
 }
@@ -313,7 +313,8 @@ impl ColorIndex {
         Ok(())
     }
 
-    /// The index selected by default (79). With the default palette this is a [light-blue](`Color::light_blue`).
+    /// The index selected by default (79). With the default palette this is a
+    /// [light-blue](`Color::light_blue`).
     pub fn default_index() -> Self {
         Self(79)
     }
@@ -447,4 +448,154 @@ pub enum MaterialType {
     Metal,
     Glass,
     Emissive,
+}
+
+#[derive(Clone, Debug)]
+pub struct Transform {
+    pub node_id: u32,
+    pub attributes: Attributes,
+    pub child_node_id: u32,
+    pub reserved_id: Option<u32>,
+    pub layer_id: Option<u32>,
+    pub frames: Vec<Attributes>,
+}
+
+impl Transform {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
+        let node_id = reader.read_u32::<LE>()?;
+        let attributes = Attributes::read(&mut reader)?;
+        let child_node_id = reader.read_u32::<LE>()?;
+        let reserved_id = read_id_opt(&mut reader)?;
+        let layer_id = read_id_opt(&mut reader)?;
+
+        let num_frames = reader.read_u32::<LE>()?;
+        let mut frames = vec![];
+        for _ in 0..num_frames {
+            frames.push(Attributes::read(&mut reader)?);
+        }
+
+        Ok(Self {
+            node_id,
+            attributes,
+            child_node_id,
+            reserved_id,
+            layer_id,
+            frames,
+        })
+    }
+
+    // TODO: Return an error?
+    pub fn get_transform(&self, frame: usize) -> Option<Vector<i32>> {
+        let mut parts = self.frames.get(frame)?.get("_t")?.split_whitespace();
+        let x = parts.next()?.parse().ok()?;
+        let y = parts.next()?.parse().ok()?;
+        let z = parts.next()?.parse().ok()?;
+
+        parts.next().is_none().then(|| Vector::new(x, y, z))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Group {
+    pub node_id: u32,
+    pub attributes: Attributes,
+    pub children: Vec<u32>,
+}
+
+impl Group {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
+        let node_id = reader.read_u32::<LE>()?;
+        let attributes = Attributes::read(&mut reader)?;
+        let num_children = reader.read_u32::<LE>()?;
+        let mut children = Vec::with_capacity(num_children as usize);
+
+        for _ in 0..num_children {
+            children.push(reader.read_u32::<LE>()?);
+        }
+
+        Ok(Self {
+            node_id,
+            attributes,
+            children,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Shape {
+    pub node_id: u32,
+    pub attributes: Attributes,
+}
+
+impl Shape {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
+        Ok(Self {
+            node_id: reader.read_u32::<LE>()?,
+            attributes: Attributes::read(reader)?,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Layer {
+    pub node_id: u32,
+    pub attributes: Attributes,
+    pub reserved_id: Option<u32>,
+}
+
+impl Layer {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
+        Ok(Self {
+            node_id: reader.read_u32::<LE>()?,
+            attributes: Attributes::read(&mut reader)?,
+            reserved_id: read_id_opt(reader)?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Attributes {
+    inner: HashMap<String, String>,
+}
+
+impl Attributes {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
+        // An array of key value pairs, where key and value are strings prefixed with
+        // length as u32
+
+        let mut inner = HashMap::new();
+        let num_items = reader.read_u32::<LE>()?;
+        log::trace!("Attributes::read: num_items={}", num_items);
+        for _ in 0..num_items {
+            let key = Self::read_string(&mut reader)?;
+            let value = Self::read_string(&mut reader)?;
+            log::trace!("Attributes::read: key={}, value={}", key, value);
+            inner.insert(key, value);
+        }
+
+        Ok(Attributes { inner })
+    }
+
+    fn read_string<R: Read>(mut reader: R) -> Result<String, ReadError> {
+        let len = reader.read_u32::<LE>()?;
+        log::trace!("Attributes::read_string: len={}", len);
+        let mut buf = vec![0; len.try_into().expect("int overflow")];
+        reader.read_exact(&mut buf)?;
+        log::trace!("Attributes::read_string: buf={:?}", buf);
+        Ok(String::from_utf8(buf)?)
+    }
+
+    pub fn get(&self, key: impl AsRef<str>) -> Option<&str> {
+        Some(self.inner.get(key.as_ref())?.as_str())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.inner
+            .iter()
+            .map(|(key, value)| (key.as_str(), value.as_str()))
+    }
+}
+
+fn read_id_opt<R: Read>(mut reader: R) -> Result<Option<u32>, ReadError> {
+    Ok(reader.read_i32::<LE>()?.try_into().ok())
 }

@@ -77,7 +77,9 @@ vox-tool --help
 
 # TODO
 
- - [ ] Support for undocumented chunk IDs. `PACK` is not used as it seems.
+## For first release
+
+ - [x] Reading of undocumented chunk IDs.
  - [ ] Integrations:
    - [x] `building-blocks`
    - [x] `image`
@@ -95,9 +97,16 @@ vox-tool --help
    - [ ] Also copy children with `copy_map_chunks`.
  - [ ] More documentation:
    - [ ] docs for all items: `#![deny(missing_docs)]`
-   - [ ] more examples
+   - [ ] Some more examples for function docs
    - [ ] proof-read docs
- - [ ] Some methods in `Chunk` take `&mut W` instead of `W` as argument.
+   - [ ] Example programs (`cargo run --example`)
+ - [ ] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
+ - [ ] Proper iterator types, instead of `impl Iterator`.
+
+
+## After first release
+
+ - [_] Finish implementing undocumented chunk IDs.
 
 # License
 
