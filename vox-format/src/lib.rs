@@ -33,24 +33,18 @@
 //! ```
 
 pub mod chunk;
+pub mod data;
 pub mod default_palette;
 pub mod reader;
-pub mod vox;
+pub mod types;
 pub mod writer;
 
 pub use crate::{
+    data::VoxData,
     reader::{
         from_file,
         from_reader,
         from_slice,
-    },
-    vox::{
-        Color,
-        Model,
-        Palette,
-        Vector,
-        VoxData,
-        Voxel,
     },
     writer::{
         to_file,

@@ -5,7 +5,7 @@ use image::{
     RgbaImage,
 };
 
-use crate::{
+use crate::types::{
     Color,
     Palette,
 };

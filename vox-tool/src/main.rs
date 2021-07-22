@@ -30,9 +30,11 @@ use vox_format::{
     },
     default_palette::DEFAULT_PALETTE,
     from_file,
+    types::{
+        Model,
+        Palette,
+    },
     writer::main_chunk_writer,
-    Model,
-    Palette,
 };
 
 /// Tools for inspection and manipulation of MagicaVoxel VOX files.

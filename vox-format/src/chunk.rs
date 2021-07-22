@@ -32,7 +32,7 @@ use thiserror::Error;
 
 use crate::{
     reader::Error as ReadError,
-    vox::Version,
+    types::Version,
     writer::Error as WriteError,
 };
 

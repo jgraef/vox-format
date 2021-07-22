@@ -17,6 +17,7 @@ pub struct VoxData {
     pub version: Version,
     pub models: Vec<Model>,
     pub palette: Palette,
+    pub materials: MaterialPalette,
 }
 
 impl Default for VoxData {
@@ -61,6 +62,10 @@ impl VoxBuffer for VoxData {
 
     fn set_palette(&mut self, palette: Palette) {
         self.palette = palette;
+    }
+
+    fn set_material(&mut self, material_id: ColorIndex, material: Material) {
+        self.materials.insert(material_id, material);
     }
 }
 
@@ -167,12 +172,16 @@ impl Index<ColorIndex> for Palette {
 #[derive(Clone, Debug, Default)]
 pub struct MaterialPalette {
     /// TODO: Does the material ID correspond to a ColorIndex?
-    pub materials: HashMap<ColorIndex, Material>,
+    materials: HashMap<ColorIndex, Material>,
 }
 
 impl MaterialPalette {
     pub fn is_empty(&self) -> bool {
         self.materials.is_empty()
+    }
+
+    pub fn get(&self, material_id: ColorIndex) -> Option<&Material> {
+        self.materials.get(&material_id)
     }
 
     // TODO: Return a struct here
@@ -181,7 +190,12 @@ impl MaterialPalette {
             .iter()
             .map(|(color_index, material)| (*color_index, material))
     }
+
+    pub fn insert(&mut self, material_id: ColorIndex, material: Material) {
+        self.insert(material_id, material);
+    }
 }
+
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Color {

@@ -1,6 +1,6 @@
 //! Defines the default palette used by MagicaVoxel.
 
-use crate::vox::{
+use crate::types::{
     Color,
     Palette,
 };

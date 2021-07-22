@@ -22,15 +22,15 @@ use crate::{
         ChunkId,
         ChunkWriter,
     },
-    vox::{
+    data::VoxData,
+    types::{
+        Color,
         ColorIndex,
+        Palette,
+        Vector,
         Version,
-        VoxData,
+        Voxel,
     },
-    Color,
-    Palette,
-    Vector,
-    Voxel,
 };
 
 /// Error type returned when writing fails.
