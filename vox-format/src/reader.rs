@@ -25,6 +25,8 @@ use crate::{
     vox::{
         Color,
         ColorIndex,
+        Material,
+        MaterialType,
         Palette,
         Vector,
         Version,
@@ -55,6 +57,9 @@ pub enum Error {
     #[error("Found multiple RGBA chunks (at {} and {}).", .chunks[0].offset(), chunks[1].offset())]
     MultipleRgbaChunks { chunks: [Chunk; 2] },
 
+    #[error("Invalid material type: {0}")]
+    InvalidMaterial(u8),
+
     #[error("IO error")]
     Io(#[from] std::io::Error),
 }
@@ -62,6 +67,17 @@ pub enum Error {
 /// A trait for data structures that can constructed from a VOX file.
 /// `[crate::vox::VoxData]` implements this for convienience, but you can also
 /// implement this for your own voxel model types.
+///
+/// These are always called in this order:
+/// 1. `set_version`
+/// 2. `set_palette`
+/// 3. `set_num_models`
+/// 4. `set_model_size`
+///   1. `set_voxel`
+///
+/// `set_model_size` is always called before the voxels from this model are
+/// passed via `set_voxel`. `set_model_size` is called for each model, and
+/// `set_voxel` is called for each voxel in a model.
 pub trait VoxBuffer {
     fn set_version(&mut self, version: Version);
 
@@ -72,6 +88,41 @@ pub trait VoxBuffer {
     fn set_voxel(&mut self, voxel: Voxel);
 
     fn set_palette(&mut self, palette: Palette);
+}
+
+/// Trait for reading a single model.
+pub trait VoxModelBuf {
+    fn new(size: Vector) -> Self;
+    fn set_voxel(&mut self, voxel: Voxel, palette: &Palette);
+}
+
+/// A [`VoxBuffer`] implementation that collects the models into a `Vec` and is
+/// generic over the kind of voxel data.
+#[derive(Debug)]
+pub struct VoxModels<V> {
+    pub models: Vec<V>,
+    pub palette: Palette,
+}
+
+impl<V: VoxModelBuf> VoxBuffer for VoxModels<V> {
+    fn set_version(&mut self, _version: Version) {}
+
+    fn set_num_models(&mut self, num_models: usize) {
+        self.models.reserve_exact(num_models);
+    }
+
+    fn set_model_size(&mut self, model_size: Vector) {
+        self.models.push(V::new(model_size));
+    }
+
+    fn set_voxel(&mut self, voxel: Voxel) {
+        let model = self.models.last_mut().expect("model");
+        model.set_voxel(voxel, &self.palette);
+    }
+
+    fn set_palette(&mut self, palette: Palette) {
+        self.palette = palette;
+    }
 }
 
 /// Reads a VOX file from the reader into the [`VoxBuffer`].
@@ -116,6 +167,17 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
         }
     }
 
+    // Call `set_palette` first, so the trait impl has the palette data already when
+    // reading the voxels.
+    if let Some(rgba_chunk) = rgba_chunk {
+        log::debug!("read RGBA chunk");
+        let palette = Palette::read(&mut rgba_chunk.content(&mut reader)?)?;
+        buffer.set_palette(palette);
+    }
+    else {
+        log::debug!("no RGBA chunk found");
+    }
+
     let num_models = pack_chunk
         .map(|pack| Ok::<_, Error>(pack.content(&mut reader)?.read_u32::<LE>()? as usize))
         .transpose()?
@@ -146,15 +208,6 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
             log::trace!("voxel = {:?}", voxel);
             buffer.set_voxel(voxel);
         }
-    }
-
-    if let Some(rgba_chunk) = rgba_chunk {
-        log::debug!("read RGBA chunk");
-        let palette = Palette::read(&mut rgba_chunk.content(&mut reader)?)?;
-        buffer.set_palette(palette);
-    }
-    else {
-        log::debug!("no RGBA chunk found");
     }
 
     Ok(())
@@ -212,6 +265,61 @@ impl Color {
 impl ColorIndex {
     pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
         Ok(Self(reader.read_u8()?))
+    }
+}
+
+impl MaterialType {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
+        match reader.read_u8()? {
+            0 => Ok(MaterialType::Diffuse),
+            1 => Ok(MaterialType::Metal),
+            2 => Ok(MaterialType::Glass),
+            3 => Ok(MaterialType::Emissive),
+            x => Err(Error::InvalidMaterial(x)),
+        }
+    }
+}
+
+impl Material {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
+        let ty = MaterialType::read(&mut reader)?;
+        let weight = reader.read_f32::<LE>()?;
+        let flags = reader.read_u32::<LE>()?;
+
+        let plastic = (flags & 1 != 0)
+            .then(|| reader.read_f32::<LE>())
+            .transpose()?;
+        let roughness = (flags & 2 != 0)
+            .then(|| reader.read_f32::<LE>())
+            .transpose()?;
+        let specular = (flags & 4 != 0)
+            .then(|| reader.read_f32::<LE>())
+            .transpose()?;
+        let ior = (flags & 8 != 0)
+            .then(|| reader.read_f32::<LE>())
+            .transpose()?;
+        let attenuation = (flags & 16 != 0)
+            .then(|| reader.read_f32::<LE>())
+            .transpose()?;
+        let power = (flags & 32 != 0)
+            .then(|| reader.read_f32::<LE>())
+            .transpose()?;
+        let glow = (flags & 64 != 0)
+            .then(|| reader.read_f32::<LE>())
+            .transpose()?;
+
+        Ok(Material {
+            ty,
+            weight,
+            plastic,
+            roughness,
+            specular,
+            ior,
+            attenuation,
+            power,
+            glow,
+            is_total_power: (flags & 128 != 0),
+        })
     }
 }
 

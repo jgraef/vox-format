@@ -2,6 +2,7 @@
 //! built-in [`crate::reader::VoxBuffer`].
 
 use std::{
+    collections::HashMap,
     fmt,
     ops::Index,
 };
@@ -31,6 +32,35 @@ impl VoxData {
             models: vec![],
             palette: Palette::default(),
         }
+    }
+}
+
+impl VoxBuffer for VoxData {
+    fn set_version(&mut self, version: Version) {
+        self.version = version;
+    }
+
+    fn set_num_models(&mut self, num_models: usize) {
+        self.models.reserve_exact(num_models);
+    }
+
+    fn set_model_size(&mut self, size: Vector) {
+        self.models.push(Model {
+            size,
+            voxels: Vec::with_capacity((size.x * size.y * size.z) as usize),
+        })
+    }
+
+    fn set_voxel(&mut self, voxel: Voxel) {
+        let model = self
+            .models
+            .last_mut()
+            .expect("Expected to have set_model_size called first.");
+        model.voxels.push(voxel);
+    }
+
+    fn set_palette(&mut self, palette: Palette) {
+        self.palette = palette;
     }
 }
 
@@ -117,8 +147,9 @@ impl Palette {
         self.colors == DEFAULT_PALETTE.colors
     }
 
+    // TODO: Return a struct here
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = (ColorIndex, Color)> + 'a {
-        self.colors[1..]
+        self.colors
             .iter()
             .enumerate()
             .map(|(i, color)| (ColorIndex(i as u8), *color))
@@ -129,7 +160,26 @@ impl Index<ColorIndex> for Palette {
     type Output = Color;
 
     fn index(&self, index: ColorIndex) -> &Self::Output {
-        &self.colors[index.0 as usize + 1]
+        &self.colors[index.0 as usize]
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MaterialPalette {
+    /// TODO: Does the material ID correspond to a ColorIndex?
+    pub materials: HashMap<ColorIndex, Material>,
+}
+
+impl MaterialPalette {
+    pub fn is_empty(&self) -> bool {
+        self.materials.is_empty()
+    }
+
+    // TODO: Return a struct here
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (ColorIndex, &'a Material)> + 'a {
+        self.materials
+            .iter()
+            .map(|(color_index, material)| (*color_index, material))
     }
 }
 
@@ -158,14 +208,15 @@ impl From<[u8; 4]> for Color {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColorIndex(pub u8);
 
 impl From<u8> for ColorIndex {
     fn from(x: u8) -> Self {
-        if x == 255 {
+        // I don't think this is invalid
+        /*if x == 255 {
             panic!("Invalid color index: 255");
-        }
+        }*/
         Self(x)
     }
 }
@@ -182,31 +233,24 @@ impl fmt::Display for ColorIndex {
     }
 }
 
-impl VoxBuffer for VoxData {
-    fn set_version(&mut self, version: Version) {
-        self.version = version;
-    }
+#[derive(Clone, Debug)]
+pub struct Material {
+    pub ty: MaterialType,
+    pub weight: f32,
+    pub plastic: Option<f32>,
+    pub roughness: Option<f32>,
+    pub specular: Option<f32>,
+    pub ior: Option<f32>,
+    pub attenuation: Option<f32>,
+    pub power: Option<f32>,
+    pub glow: Option<f32>,
+    pub is_total_power: bool,
+}
 
-    fn set_num_models(&mut self, num_models: usize) {
-        self.models.reserve_exact(num_models);
-    }
-
-    fn set_model_size(&mut self, size: Vector) {
-        self.models.push(Model {
-            size,
-            voxels: Vec::with_capacity((size.x * size.y * size.z) as usize),
-        })
-    }
-
-    fn set_voxel(&mut self, voxel: Voxel) {
-        let model = self
-            .models
-            .last_mut()
-            .expect("Expected to have set_model_size called first.");
-        model.voxels.push(voxel);
-    }
-
-    fn set_palette(&mut self, palette: Palette) {
-        self.palette = palette;
-    }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MaterialType {
+    Diffuse,
+    Metal,
+    Glass,
+    Emissive,
 }
