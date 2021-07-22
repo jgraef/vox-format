@@ -297,12 +297,8 @@ mod tests {
         assert_voxels(model, &glider());
     }
 
-    // FIXME: `PACK` doesn't seem to be used.
     #[test]
     fn it_reads_multiple_models() {
-        dotenv::dotenv().ok();
-        pretty_env_logger::init();
-
         let vox = from_slice(include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../test_files/test_multiple_models.vox"

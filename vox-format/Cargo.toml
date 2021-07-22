@@ -46,10 +46,6 @@ version = "0.3"
 optional = true
 features = ["const-generics"]
 
-[dev-dependencies]
-pretty_env_logger = "0.4"
-dotenv = "0.15"
-
 [features]
 default = []
 full = ["image", "mint", "nalgebra", "serialize"]

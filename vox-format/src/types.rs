@@ -206,11 +206,12 @@ impl Palette {
     }
 
     // TODO: Return a struct here
-    pub fn iter(&self) -> impl Iterator<Item = (ColorIndex, Color)> + '_ {
-        self.colors
-            .iter()
-            .enumerate()
-            .map(|(i, color)| (ColorIndex(i as u8), *color))
+    pub fn iter(&self) -> PaletteIter {
+        PaletteIter {
+            inner: self.colors
+                .iter()
+                .enumerate(),
+        }       
     }
 
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
@@ -231,6 +232,22 @@ impl Palette {
         Ok(())
     }
 }
+
+#[derive(Debug)]
+pub struct PaletteIter<'a> {
+    inner: std::iter::Enumerate<std::slice::Iter<'a, Color>>,
+}
+
+impl<'a> Iterator for PaletteIter<'a> {
+    type Item = (ColorIndex, Color);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (index, color) = self.inner.next()?;
+        Some((ColorIndex(index as u8), *color))
+    }
+}
+
+
 
 impl Index<ColorIndex> for Palette {
     type Output = Color;
@@ -261,14 +278,29 @@ impl MaterialPalette {
     }
 
     // TODO: Return a struct here
-    pub fn iter(&self) -> impl Iterator<Item = (ColorIndex, &Material)> {
-        self.materials
+    pub fn iter(&self) -> MaterialPaletteIter {
+        MaterialPaletteIter {
+            inner: self.materials
             .iter()
-            .map(|(color_index, material)| (*color_index, material))
+        }
     }
 
     pub fn insert(&mut self, material_id: ColorIndex, material: Material) {
         self.materials.insert(material_id, material);
+    }
+}
+
+#[derive(Debug)]
+pub struct MaterialPaletteIter<'a> {
+    inner: std::collections::hash_map::Iter<'a, ColorIndex, Material>,
+}
+
+impl<'a> Iterator for MaterialPaletteIter<'a> {
+    type Item = (ColorIndex, &'a Material);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (index, material) = self.inner.next()?;
+        Some((*index, material))
     }
 }
 
@@ -640,10 +672,25 @@ impl Attributes {
         Some(self.inner.get(key.as_ref())?.as_str())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.inner
-            .iter()
-            .map(|(key, value)| (key.as_str(), value.as_str()))
+    pub fn iter(&self) -> AttributesIter {
+        AttributesIter {
+            inner: self.inner.iter()
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub struct AttributesIter<'a> {
+    inner: std::collections::hash_map::Iter<'a, String, String>,
+}
+
+impl<'a> Iterator for AttributesIter<'a> {
+    type Item = (&'a str, &'a str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (key, value) = self.inner.next()?;
+        Some((key.as_ref(), value.as_ref()))
     }
 }
 

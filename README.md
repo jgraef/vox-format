@@ -98,7 +98,7 @@ vox-tool --help
    - [ ] Example programs (`cargo run --example`)
    - [ ] Check `vox-tool` usage
  - [x] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
- - [ ] Proper iterator types, instead of `impl Iterator`.
+ - [x] Proper iterator types, instead of `impl Iterator`.
  - [ ] Remove `dev-dependencies`. They're only occasionaly used during debugging.
  - [ ] Is `vox-tool` ready?
 
