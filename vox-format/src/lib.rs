@@ -28,7 +28,7 @@
 //! Reads `VoxData` from path.
 //!
 //! ```rust
-//! let vox_data = vox_format::from_file("../test_files/glider.vox").unwrap();
+//! let vox_data = vox_format::from_file("../test_files/test_single_model_default_palette.vox").unwrap();
 //! println!("{:#?}", vox_data);
 //! ```
 

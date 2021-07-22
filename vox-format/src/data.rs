@@ -4,7 +4,7 @@ use crate::types::{
     MaterialPalette,
     Model,
     Palette,
-    Vector,
+    Size,
     Version,
     Voxel,
 };
@@ -43,7 +43,7 @@ impl VoxBuffer for VoxData {
         self.models.reserve_exact(num_models);
     }
 
-    fn set_model_size(&mut self, size: Vector) {
+    fn set_model_size(&mut self, size: Size) {
         self.models.push(Model {
             size,
             voxels: Vec::with_capacity((size.x * size.y * size.z) as usize),
@@ -86,7 +86,7 @@ pub trait VoxBuffer {
 
     fn set_num_models(&mut self, num_models: usize);
 
-    fn set_model_size(&mut self, model_size: Vector);
+    fn set_model_size(&mut self, model_size: Size);
 
     fn set_voxel(&mut self, voxel: Voxel);
 
@@ -97,7 +97,7 @@ pub trait VoxBuffer {
 
 /// Trait for reading a single model.
 pub trait VoxModelBuf {
-    fn new(size: Vector) -> Self;
+    fn new(size: Size) -> Self;
     fn set_voxel(&mut self, voxel: Voxel, palette: &Palette);
 }
 
@@ -117,7 +117,7 @@ impl<V: VoxModelBuf> VoxBuffer for VoxModels<V> {
         self.models.reserve_exact(num_models);
     }
 
-    fn set_model_size(&mut self, model_size: Vector) {
+    fn set_model_size(&mut self, model_size: Size) {
         self.models.push(V::new(model_size));
     }
 

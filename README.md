@@ -77,19 +77,26 @@ vox-tool --help
 
 # TODO
 
- - [_] Integrate into `building-blocks`.
+ - [_] Support for undocumented chunk IDs. `PACK` is not used as it seems.
+ - [_] Integrations:
+   - [X]: `building-blocks`
+   - [X]: `image`
+   - [_]: `palette`
+   - [_]: `mint` or `nalgebra`?
+   - [_]: `serde`
  - [_] Write tests:
-   - [_] Read single model
-   - [_] Read multiple modles
-   - [_] Read custom palette
+   - [X] Read single model
+   - [X] Read multiple models
+   - [X] Read custom palette
    - [_] Read materials
    - [_] ColorIndex behaviour.
  - [_] Is material ID a color index?
  - [_] Move `copy_map_chunks` to `vox_format::chunk`.
- - [_] Also copy children with `copy_map_chunks`.
+   - [_] Also copy children with `copy_map_chunks`.
  - [_] More documentation:
    - [_] docs for all items: `#![deny(missing_docs)]`
    - [_] more examples
+ - [_] Some methods in `Chunk` take `&mut W` instead of `W` as argument.
 
 # License
 

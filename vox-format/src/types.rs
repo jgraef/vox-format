@@ -55,18 +55,18 @@ impl Version {
 
 #[derive(Clone, Debug)]
 pub struct Model {
-    pub size: Vector,
+    pub size: Size,
     pub voxels: Vec<Voxel>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Voxel {
-    pub point: Vector,
+    pub point: Point,
     pub color_index: ColorIndex,
 }
 
 impl Voxel {
-    pub fn new(point: impl Into<Vector>, color_index: impl Into<ColorIndex>) -> Self {
+    pub fn new(point: impl Into<Point>, color_index: impl Into<ColorIndex>) -> Self {
         Self {
             point: point.into(),
             color_index: color_index.into(),
@@ -75,7 +75,7 @@ impl Voxel {
 
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self {
-            point: Vector::read(&mut reader)?,
+            point: Point::read(&mut reader)?,
             color_index: ColorIndex::read(&mut reader)?,
         })
     }
@@ -88,16 +88,19 @@ impl Voxel {
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Vector {
-    pub x: i8,
-    pub y: i8,
-    pub z: i8,
+pub struct Vector<T> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
 }
 
-impl Vector {
-    pub fn new(x: i8, y: i8, z: i8) -> Self {
+impl<T> Vector<T> {
+    pub fn new(x: T, y: T, z: T) -> Self {
         Self { x, y, z }
     }
+}
+
+impl Vector<i8> {
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self {
             x: reader.read_i8()?,
@@ -114,23 +117,44 @@ impl Vector {
     }
 }
 
-impl From<[i8; 3]> for Vector {
-    fn from(v: [i8; 3]) -> Self {
-        Self::new(v[0], v[1], v[2])
+impl Vector<u32> {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
+        Ok(Self {
+            x: reader.read_u32::<LE>()?,
+            y: reader.read_u32::<LE>()?,
+            z: reader.read_u32::<LE>()?,
+        })
+    }
+
+    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
+        writer.write_u32::<LE>(self.x)?;
+        writer.write_u32::<LE>(self.y)?;
+        writer.write_u32::<LE>(self.z)?;
+        Ok(())
     }
 }
 
-impl From<Vector> for [i8; 3] {
-    fn from(v: Vector) -> Self {
+impl<T> From<[T; 3]> for Vector<T> {
+    fn from(v: [T; 3]) -> Self {
+        let [x, y, z] = v;
+        Self::new(x, y, z)
+    }
+}
+
+impl<T> From<Vector<T>> for [T; 3] {
+    fn from(v: Vector<T>) -> Self {
         [v.x, v.y, v.z]
     }
 }
 
-impl fmt::Debug for Vector {
+impl<T: fmt::Debug> fmt::Debug for Vector<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {}, {})", self.x, self.y, self.z)
+        write!(f, "({:?}, {:?}, {:?})", self.x, self.y, self.z)
     }
 }
+
+pub type Point = Vector<i8>;
+pub type Size = Vector<u32>;
 
 #[derive(Clone, Debug)]
 pub struct Palette {
@@ -219,10 +243,16 @@ pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+    
+    /// Alpha channel, opacity. `0` is fully transparent, `255` is fully opaque.
     pub a: u8,
 }
 
 impl Color {
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
+    }
+
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         // FIXME: I think color is stored in ABGR format.
         Ok(Self {
@@ -240,6 +270,16 @@ impl Color {
         writer.write_u8(self.b)?;
         writer.write_u8(self.a)?;
         Ok(())
+    }
+
+    /// The light blue color selected on default.
+    pub fn light_blue() -> Self {
+        Self {
+            r: 153,
+            g: 204,
+            b: 255,
+            a: 255,
+        }
     }
 }
 
@@ -261,7 +301,7 @@ impl From<[u8; 4]> for Color {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ColorIndex(pub u8);
+pub struct ColorIndex(u8);
 
 impl ColorIndex {
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
@@ -271,6 +311,11 @@ impl ColorIndex {
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         writer.write_u8(self.0)?;
         Ok(())
+    }
+
+    /// The index selected by default (79). With the default palette this is a [light-blue](`Color::light_blue`).
+    pub fn default_index() -> Self {
+        Self(79)
     }
 }
 

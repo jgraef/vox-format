@@ -14,23 +14,38 @@ use crate::{
         Color,
         ColorIndex,
         Palette,
+        Point,
+        Size,
         Vector,
         Voxel,
     },
 };
 
-impl From<Vector> for Point3i {
-    fn from(v: Vector) -> Self {
-        PointN([v.x as i32, v.y as i32, v.z as i32])
+impl<T> From<Vector<T>> for PointN<[T; 3]> {
+    fn from(v: Vector<T>) -> Self {
+        PointN(v.into())
+    }
+}
+
+impl From<Size> for Extent3i {
+    fn from(size: Size) -> Self {
+        // Note: This can fail, if the component is greater than `i32::MAX`
+        Extent3i::from_min_and_shape(
+            Default::default(),
+            PointN([size.x as i32, size.y as i32, size.z as i32]),
+        )
+    }
+}
+
+impl From<Point> for Point3i {
+    fn from(point: Point) -> Self {
+        PointN([point.x as i32, point.y as i32, point.z as i32])
     }
 }
 
 impl VoxModelBuf for Array3x1<ColorIndex> {
-    fn new(size: Vector) -> Self {
-        Array3x1::fill_with(
-            Extent3i::from_min_and_max(Point3i::default(), size.into()),
-            |_point| ColorIndex::default(),
-        )
+    fn new(size: Size) -> Self {
+        Array3x1::fill_with(size.into(), |_point| ColorIndex::default())
     }
 
     fn set_voxel(&mut self, voxel: Voxel, _palette: &Palette) {
@@ -40,11 +55,8 @@ impl VoxModelBuf for Array3x1<ColorIndex> {
 }
 
 impl VoxModelBuf for Array3x1<Color> {
-    fn new(size: Vector) -> Self {
-        Array3x1::fill_with(
-            Extent3i::from_min_and_max(Point3i::default(), size.into()),
-            |_point| Color::default(),
-        )
+    fn new(size: Size) -> Self {
+        Array3x1::fill_with(size.into(), |_point| Color::default())
     }
 
     fn set_voxel(&mut self, voxel: Voxel, palette: &Palette) {

@@ -1,14 +1,9 @@
 ///! Provides functions to read VOX files.
-use std::{
-    fs::File,
-    io::{
+use std::{fs::File, io::{
         Cursor,
         Read,
         Seek,
-    },
-    path::Path,
-    usize,
-};
+    }, path::Path, str::from_utf8};
 
 use byteorder::{
     ReadBytesExt,
@@ -28,7 +23,7 @@ use crate::{
     },
     types::{
         Palette,
-        Vector,
+        Size,
         Voxel,
     },
 };
@@ -45,11 +40,11 @@ pub enum Error {
     #[error("Found multiple PACK chunks (at {} and {}).", .chunks[0].offset(), chunks[1].offset())]
     MultiplePackChunks { chunks: [Chunk; 2] },
 
-    #[error("Found {} SIZE chunks, {} XYZI chunks, and PACK said there are {} models.", .size_chunks.len(), .xyzi_chunks.len(), num_models)]
+    #[error("Found {} SIZE chunks, {} XYZI chunks.", .size_chunks.len(), .xyzi_chunks.len())]
     InvalidNumberOfSizeAndXyziChunks {
         size_chunks: Vec<Chunk>,
         xyzi_chunks: Vec<Chunk>,
-        num_models: usize,
+        //num_models: usize,
     },
 
     #[error("Found multiple RGBA chunks (at {} and {}).", .chunks[0].offset(), chunks[1].offset())]
@@ -74,7 +69,7 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
     //print_chunk(&main_chunk, &mut self.reader, 0)?;
     log::trace!("main chunk: {:#?}", main_chunk);
 
-    let mut pack_chunk = None;
+    //let mut pack_chunk = None;
     let mut size_chunks = vec![];
     let mut xyzi_chunks = vec![];
     let mut rgba_chunk = None;
@@ -82,14 +77,15 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
     for r in main_chunk.children(&mut reader) {
         let chunk = r?;
         match chunk.id() {
-            ChunkId::Pack => {
+            /*ChunkId::Pack => {
+                log::debug!("read PACK chunk: {:?}", chunk);
                 if pack_chunk.is_some() {
                     return Err(Error::MultiplePackChunks {
                         chunks: [pack_chunk.take().unwrap(), chunk],
                     });
                 }
                 pack_chunk = Some(chunk);
-            }
+            }*/
             ChunkId::Size => size_chunks.push(chunk),
             ChunkId::Xyzi => xyzi_chunks.push(chunk),
             ChunkId::Rgba => {
@@ -99,39 +95,49 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
                     });
                 }
                 rgba_chunk = Some(chunk);
-            }
-            id => log::trace!("Skipping unsupported chunk: {:?}", id),
+            },
+            /*ChunkId::Note => {
+                let data = chunk.read_content_to_vec(&mut reader)?;
+                log::error!("{:#?}", data);
+                todo!();
+            },*/
+            ChunkId::Unsupported(raw) => {
+                let str_opt = from_utf8(&raw).ok();
+                log::trace!("Skipping unsupported chunk: {:?} ({:?})", raw, str_opt);
+            },
+            id => log::debug!("Skipping unimplemented chunk: {:?}", id),
         }
     }
 
     // Call `set_palette` first, so the trait impl has the palette data already when
     // reading the voxels.
     if let Some(rgba_chunk) = rgba_chunk {
-        log::debug!("read RGBA chunk");
+        log::trace!("read RGBA chunk");
         let palette = Palette::read(&mut rgba_chunk.content(&mut reader)?)?;
         buffer.set_palette(palette);
     }
     else {
-        log::debug!("no RGBA chunk found");
+        log::trace!("no RGBA chunk found");
     }
 
-    let num_models = pack_chunk
+    /*let num_models = pack_chunk
         .map(|pack| Ok::<_, Error>(pack.content(&mut reader)?.read_u32::<LE>()? as usize))
         .transpose()?
         .unwrap_or(1);
-    log::trace!("num_models = {}", num_models);
+    log::trace!("num_models = {}", num_models);*/
 
-    if num_models != size_chunks.len() || num_models != xyzi_chunks.len() {
+    if xyzi_chunks.len() != size_chunks.len() {
         return Err(Error::InvalidNumberOfSizeAndXyziChunks {
             size_chunks,
             xyzi_chunks,
-            num_models,
         });
     }
+    let num_models = size_chunks.len();
+    log::trace!("num_models = {}", num_models);
     buffer.set_num_models(num_models);
 
     for (size_chunk, xyzi_chunk) in size_chunks.into_iter().zip(xyzi_chunks) {
-        let model_size = Vector::read(&mut size_chunk.content(&mut reader)?)?;
+        let model_size = Size::read(&mut size_chunk.content(&mut reader)?)?;
         log::trace!("model_size = {:?}", model_size);
         buffer.set_model_size(model_size);
 
@@ -169,27 +175,113 @@ pub fn from_file<P: AsRef<Path>>(path: P) -> Result<VoxData, Error> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     // TODO: Write some proper test with some better test files.
 
-    use std::io::Cursor;
+    use std::collections::HashMap;
 
-    use super::read_vox_into;
-    use crate::data::VoxData;
+    use super::from_slice;
+    use crate::types::{
+        Color,
+        ColorIndex,
+        Model,
+        Point,
+        Vector,
+        Voxel,
+    };
+
+    fn assert_voxels(model: &Model, expected: &[Voxel]) {
+        let voxels = model
+            .voxels
+            .iter()
+            .map(|voxel| (voxel.point, voxel.color_index))
+            .collect::<HashMap<Point, ColorIndex>>();
+
+        for expected_voxel in expected {
+            let voxel = voxels.get(&Vector::from(expected_voxel.point)).copied();
+            assert_eq!(voxel, Some(expected_voxel.color_index), "Expected right at {:?}", expected_voxel.point);
+        }
+    }
+
+    fn glider() -> Vec<Voxel> {
+        vec![
+            Voxel::new([0, 0, 1], 79),
+            Voxel::new([1, 0, 0], 79),
+            Voxel::new([2, 0, 0], 79),
+            Voxel::new([2, 0, 1], 69),
+            Voxel::new([2, 0, 2], 69),
+        ]
+    }
+
+    fn glider2() -> Vec<Voxel> {
+        vec![
+            Voxel::new([0, 2, 0], 79),
+            Voxel::new([1, 1, 0], 79),
+            Voxel::new([2, 1, 0], 79),
+            Voxel::new([1, 0, 0], 79),
+            Voxel::new([0, 0, 0], 79),
+        ]
+    }
 
     #[test]
-    fn it_works_perfectly_as_intended_lol() {
+    fn it_reads_files_without_models() {
+        let vox = from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_files/test_no_models.vox"
+        )))
+        .unwrap();
+        assert!(vox.models.is_empty());
+    }
+
+    #[test]
+    fn it_reads_a_single_model() {
+        let vox = from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_files/test_single_model_default_palette.vox"
+        )))
+        .unwrap();
+
+        assert_eq!(vox.models.len(), 1);
+        assert!(vox.palette.is_default());
+
+        let model = &vox.models[0];
+        assert_eq!(model.size, Vector::new(3, 1, 3));
+        assert_voxels(model, &glider());
+    }
+
+    // FIXME: `PACK` doesn't seem to be used.
+    //#[test]
+    fn it_reads_multiple_models() {
         dotenv::dotenv().ok();
         pretty_env_logger::init();
 
-        let raw = include_bytes!("../../test_files/ore_small.vox");
+        let vox = from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_files/test_multiple_models.vox"
+        )))
+        .unwrap();
 
-        let mut buffer = VoxData::default();
+        assert_eq!(vox.models.len(), 2);
 
-        match read_vox_into(Cursor::new(raw), &mut buffer) {
-            Ok(()) => {
-                println!("{:#?}", buffer);
-            }
-            Err(e) => panic!("Error: {}", e),
-        }
+        let model1 = &vox.models[0];
+        assert_eq!(model1.size, Vector::new(3, 1, 3));
+        assert_voxels(model1, &glider());
+
+        let model2 = &vox.models[1];
+        assert_eq!(model2.size, Vector::new(3, 3, 1));
+        assert_voxels(model2, &glider2());
+    }
+
+    #[test]
+    fn it_reads_a_custom_palette() {
+        let vox = from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_files/test_custom_palette.vox"
+        )))
+        .unwrap();
+
+        assert!(!vox.palette.is_default());
+        assert_eq!(vox.palette[79.into()], Color::light_blue());
+        assert_eq!(vox.palette[69.into()], Color::new(108, 0, 204, 255));
     }
 }

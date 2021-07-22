@@ -47,14 +47,24 @@ pub struct ChunkIdParseError(String);
 /// its [source](https://github.com/aiekick/MagicaVoxel_File_Writer/blob/master/VoxWriter.cpp)
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ChunkId {
+    // These are actually defined in the spec.
     Main,
     Pack,
     Size,
     Xyzi,
     Rgba,
-    Matt,
-    //Ntrn,
-    //NGrp,
+    Matt, // There's also a `MATL`?
+
+    /// TODO: What format does this have?
+    Note,
+
+    // From source `VoxWriter::VoxWriter` (line 482)
+    Vox,
+    NTrn,
+    NGrp,
+    NShp,
+
+    /// Unsupported chunk ID
     Unsupported([u8; 4]),
 }
 
@@ -85,6 +95,11 @@ impl From<[u8; 4]> for ChunkId {
             b"XYZI" => Self::Xyzi,
             b"RGBA" => Self::Rgba,
             b"MATT" => Self::Matt,
+            b"NOTE" => Self::Note,
+            b"VOX " => Self::Vox,
+            b"nTRN" => Self::NTrn,
+            b"nGRP" => Self::NGrp,
+            b"nShp" => Self::NShp,
             _ => Self::Unsupported(value),
         }
     }
@@ -99,6 +114,11 @@ impl From<ChunkId> for [u8; 4] {
             ChunkId::Xyzi => *b"XYZI",
             ChunkId::Rgba => *b"RGBA",
             ChunkId::Matt => *b"MATT",
+            ChunkId::Note => *b"NOTE",
+            ChunkId::Vox => *b"VOX ",
+            ChunkId::NTrn => *b"nTRN",
+            ChunkId::NGrp => *b"nGRP",
+            ChunkId::NShp => *b"nSHP",
             ChunkId::Unsupported(value) => value,
         }
     }
@@ -170,6 +190,12 @@ impl Chunk {
         })
     }
 
+    pub fn read_content_to_vec<'r, R: Read + Seek>(&self, reader: &'r mut R) -> Result<Vec<u8>, ReadError> {
+        let mut buf = vec![];
+        self.content(reader)?.read_to_end(&mut buf)?;
+        Ok(buf)
+    }
+
     /// Creates an iterator over its children. The iterator yields
     /// `Result<Chunk, _>`, so you'll need to handle the error first.
     /// Each child then is another `Chunk` struct that can be used to read
@@ -231,7 +257,8 @@ impl Chunk {
         self.content_len + self.children_len + 12
     }
 
-    /// Returns `true` if the chunks has neither content nor children, `false` otherwise.
+    /// Returns `true` if the chunks has neither content nor children, `false`
+    /// otherwise.
     pub fn is_empty(&self) -> bool {
         self.content_len == 0 && self.children_len == 0
     }
@@ -513,8 +540,7 @@ impl<W: Write + Seek> ChunkWriter<W> {
         );
 
         let old_pos = self.writer.seek(SeekFrom::Current(0))?;
-        self.writer
-            .seek(SeekFrom::Start(self.offset + 4))?;
+        self.writer.seek(SeekFrom::Start(self.offset + 4))?;
 
         self.writer.write_u32::<LE>(self.content_len)?;
         self.writer.write_u32::<LE>(self.children_len)?;
