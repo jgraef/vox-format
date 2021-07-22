@@ -349,7 +349,8 @@ fn copy_map_chunks<
                 // TODO: If we move the copy function into `vox-format`, we can make use of the
                 // fact that we can read/write the children as a blob.
                 if chunk.children_len() != 0 {
-                    todo!("TODO: Copy children. This is not implemented, because at this point all supported chunk types (except `MAIN`) have no children. Please open an issue, if you need this feature.");
+                    //todo!("TODO: Copy children. This is not implemented, because at this point all supported chunk types (except `MAIN`) have no children. Please open an issue, if you need this feature.");
+                    log::warn!("Unexpected chunk with children. Ignoring children");
                 }
             }
         }
