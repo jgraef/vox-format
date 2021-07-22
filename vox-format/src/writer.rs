@@ -23,14 +23,7 @@ use crate::{
         ChunkWriter,
     },
     data::VoxData,
-    types::{
-        Color,
-        ColorIndex,
-        Palette,
-        Vector,
-        Version,
-        Voxel,
-    },
+    types::Version,
 };
 
 /// Error type returned when writing fails.
@@ -49,58 +42,6 @@ pub enum Error {
     /// chunk-writer closure.
     #[error("Reader error")]
     Reader(#[from] crate::reader::Error),
-}
-
-impl Version {
-    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        writer.write_u32::<LE>(self.0)?;
-        Ok(())
-    }
-}
-
-impl Vector {
-    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        writer.write_i8(self.x)?;
-        writer.write_i8(self.y)?;
-        writer.write_i8(self.z)?;
-        Ok(())
-    }
-}
-
-impl Voxel {
-    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        self.point.write(&mut writer)?;
-        self.color_index.write(&mut writer)?;
-        Ok(())
-    }
-}
-
-impl Palette {
-    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        for color in &self.colors[1..] {
-            color.write(&mut writer)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Color {
-    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        // FIXME: I think color is stored in ABGR format.
-        writer.write_u8(self.r)?;
-        writer.write_u8(self.g)?;
-        writer.write_u8(self.b)?;
-        writer.write_u8(self.a)?;
-        Ok(())
-    }
-}
-
-impl ColorIndex {
-    pub fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        writer.write_u8(self.0)?;
-        Ok(())
-    }
 }
 
 /// Writes the file header for a VOX file.

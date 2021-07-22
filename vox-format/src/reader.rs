@@ -27,13 +27,8 @@ use crate::{
         VoxData,
     },
     types::{
-        Color,
-        ColorIndex,
-        Material,
-        MaterialType,
         Palette,
         Vector,
-        Version,
         Voxel,
     },
 };
@@ -153,116 +148,6 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
     }
 
     Ok(())
-}
-
-impl Version {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        Ok(Self(reader.read_u32::<LE>()?))
-    }
-}
-
-impl Vector {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        Ok(Self {
-            x: reader.read_i8()?,
-            y: reader.read_i8()?,
-            z: reader.read_i8()?,
-        })
-    }
-}
-
-impl Voxel {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        Ok(Self {
-            point: Vector::read(&mut reader)?,
-            color_index: ColorIndex::read(&mut reader)?,
-        })
-    }
-}
-
-impl Palette {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        let mut palette = Palette::default();
-
-        for i in 0..255 {
-            palette.colors[i + 1] = Color::read(&mut reader)?;
-        }
-
-        Ok(palette)
-    }
-}
-
-impl Color {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        // FIXME: I think color is stored in ABGR format.
-        Ok(Self {
-            r: reader.read_u8()?,
-            g: reader.read_u8()?,
-            b: reader.read_u8()?,
-            a: reader.read_u8()?,
-        })
-    }
-}
-
-impl ColorIndex {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        Ok(Self(reader.read_u8()?))
-    }
-}
-
-impl MaterialType {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        match reader.read_u8()? {
-            0 => Ok(MaterialType::Diffuse),
-            1 => Ok(MaterialType::Metal),
-            2 => Ok(MaterialType::Glass),
-            3 => Ok(MaterialType::Emissive),
-            x => Err(Error::InvalidMaterial(x)),
-        }
-    }
-}
-
-impl Material {
-    pub fn read<R: Read>(mut reader: R) -> Result<Self, Error> {
-        let ty = MaterialType::read(&mut reader)?;
-        let weight = reader.read_f32::<LE>()?;
-        let flags = reader.read_u32::<LE>()?;
-
-        let plastic = (flags & 1 != 0)
-            .then(|| reader.read_f32::<LE>())
-            .transpose()?;
-        let roughness = (flags & 2 != 0)
-            .then(|| reader.read_f32::<LE>())
-            .transpose()?;
-        let specular = (flags & 4 != 0)
-            .then(|| reader.read_f32::<LE>())
-            .transpose()?;
-        let ior = (flags & 8 != 0)
-            .then(|| reader.read_f32::<LE>())
-            .transpose()?;
-        let attenuation = (flags & 16 != 0)
-            .then(|| reader.read_f32::<LE>())
-            .transpose()?;
-        let power = (flags & 32 != 0)
-            .then(|| reader.read_f32::<LE>())
-            .transpose()?;
-        let glow = (flags & 64 != 0)
-            .then(|| reader.read_f32::<LE>())
-            .transpose()?;
-
-        Ok(Material {
-            ty,
-            weight,
-            plastic,
-            roughness,
-            specular,
-            ior,
-            attenuation,
-            power,
-            glow,
-            is_total_power: (flags & 128 != 0),
-        })
-    }
 }
 
 /// Reads a VOX file from a reader into `VoxData`.
