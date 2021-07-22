@@ -9,7 +9,7 @@ use building_blocks_storage::{
 };
 
 use crate::{
-    data::VoxModelBuf,
+    data::VoxModelBuffer,
     types::{
         Color,
         ColorIndex,
@@ -43,7 +43,7 @@ impl From<Point> for Point3i {
     }
 }
 
-impl VoxModelBuf for Array3x1<ColorIndex> {
+impl VoxModelBuffer for Array3x1<ColorIndex> {
     fn new(size: Size) -> Self {
         Array3x1::fill_with(size.into(), |_point| ColorIndex::default())
     }
@@ -54,7 +54,7 @@ impl VoxModelBuf for Array3x1<ColorIndex> {
     }
 }
 
-impl VoxModelBuf for Array3x1<Color> {
+impl VoxModelBuffer for Array3x1<Color> {
     fn new(size: Size) -> Self {
         Array3x1::fill_with(size.into(), |_point| Color::default())
     }

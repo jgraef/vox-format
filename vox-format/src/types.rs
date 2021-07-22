@@ -60,10 +60,21 @@ impl Version {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+/// A collection of voxels with a specific size. Note, that the voxels are stored as a `Vec`, like they're stored in-file. Therefore
+/// there is no efficient point-query for voxels. If you need your models to support point-queries, you must implement your own [`crate::reader::VoxBuffer`] or [`crate::reader::VoxModelBuffer`].
+/// For testing and convienience there is [`Model::get_voxel`] to perform a point-query with a linear search.
 pub struct Model {
     pub size: Size,
     pub voxels: Vec<Voxel>,
 }
+
+impl Model {
+    /// Looks up the voxel with the coordinates of `point`. Since [`Model`] stores [`Voxel`]s in a `Vec`, this performs a linear search, and should be avoided if possible.
+    pub fn get_voxel(&self, point: Vector<i8>) -> Option<&Voxel> {
+        self.voxels.iter().find(|voxel| voxel.point == point)
+    }
+}
+
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]

@@ -68,6 +68,3 @@ mod mint;
 
 #[cfg(feature = "nalgebra")]
 mod nalgebra;
-
-#[cfg(feature = "serde")]
-mod serde;

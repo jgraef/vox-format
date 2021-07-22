@@ -96,7 +96,7 @@ pub trait VoxBuffer {
 }
 
 /// Trait for reading a single model.
-pub trait VoxModelBuf {
+pub trait VoxModelBuffer {
     fn new(size: Size) -> Self;
     fn set_voxel(&mut self, voxel: Voxel, palette: &Palette);
 }
@@ -110,7 +110,7 @@ pub struct VoxModels<V> {
     pub materials: MaterialPalette,
 }
 
-impl<V: VoxModelBuf> VoxBuffer for VoxModels<V> {
+impl<V: VoxModelBuffer> VoxBuffer for VoxModels<V> {
     fn set_version(&mut self, _version: Version) {}
 
     fn set_num_models(&mut self, num_models: usize) {

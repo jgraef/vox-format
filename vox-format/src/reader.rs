@@ -233,24 +233,6 @@ mod tests {
         Voxel,
     };
 
-    fn assert_voxels(model: &Model, expected: &[Voxel]) {
-        let voxels = model
-            .voxels
-            .iter()
-            .map(|voxel| (voxel.point, voxel.color_index))
-            .collect::<HashMap<Point, ColorIndex>>();
-
-        for expected_voxel in expected {
-            let voxel = voxels.get(&Vector::from(expected_voxel.point)).copied();
-            assert_eq!(
-                voxel,
-                Some(expected_voxel.color_index),
-                "Expected right at {:?}",
-                expected_voxel.point
-            );
-        }
-    }
-
     fn glider() -> Vec<Voxel> {
         vec![
             Voxel::new([0, 0, 1], 79),
@@ -269,6 +251,24 @@ mod tests {
             Voxel::new([1, 0, 0], 79),
             Voxel::new([0, 0, 0], 79),
         ]
+    }
+
+    fn assert_voxels(model: &Model, expected: &[Voxel]) {
+        let voxels = model
+            .voxels
+            .iter()
+            .map(|voxel| (voxel.point, voxel.color_index))
+            .collect::<HashMap<Point, ColorIndex>>();
+
+        for expected_voxel in expected {
+            let voxel = voxels.get(&Vector::from(expected_voxel.point)).copied();
+            assert_eq!(
+                voxel,
+                Some(expected_voxel.color_index),
+                "Expected right at {:?}",
+                expected_voxel.point
+            );
+        }
     }
 
     #[test]
@@ -331,5 +331,17 @@ mod tests {
         assert!(!vox.palette.is_default());
         assert_eq!(vox.palette[79.into()], Color::light_blue());
         assert_eq!(vox.palette[69.into()], Color::new(108, 0, 204, 255));
+    }
+
+    #[test]
+    fn color_indices_work_as_expected() {
+        let vox = from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_files/test_single_model_default_palette.vox"
+        )))
+        .unwrap();
+
+        let color_index = vox.models.get(0).unwrap().voxels.first().unwrap().color_index;
+        assert_eq!(vox.palette[color_index], Color::light_blue());
     }
 }

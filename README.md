@@ -81,19 +81,17 @@ vox-tool --help
 
  - [x] Reading of undocumented chunk IDs.
  - [x] Integrations:
-   - [x] `building-blocks`
    - [x] `image`
    - [x] `palette`
    - [x] `mint`
    - [x] `nalgebra`
    - [x] `serde`
- - [ ] `building-blocks` is a path-dependency right now. What's the diff to the last release?
  - [ ] Write tests:
    - [x] Read single model
    - [x] Read multiple models
    - [x] Read custom palette
    - [ ] Read materials
-   - [ ] ColorIndex behaviour.
+   - [x] ColorIndex behaviour.
  - [ ] Is material ID a color index?
  - [ ] Move `copy_map_chunks` to `vox_format::chunk`.
    - [ ] Also copy children with `copy_map_chunks`.
@@ -102,9 +100,11 @@ vox-tool --help
    - [ ] Some more examples for function docs
    - [ ] proof-read docs
    - [ ] Example programs (`cargo run --example`)
+   - [ ] Check `vox-tool` usage
  - [ ] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
  - [ ] Proper iterator types, instead of `impl Iterator`.
  - [ ] Remove `dev-dependencies`. They're only occasionaly used during debugging.
+ - [ ] Is `vox-tool` ready?
 
 
 ## After first release
