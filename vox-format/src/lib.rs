@@ -5,8 +5,8 @@
 //! into a [`VoxData`] and then read or manipulate its data, there's also an
 //! interface to construct your own voxel data from a VOX file.
 //!
-//! If you're looking for a command-line utility to manipulate VOX files, take a look at [`vox-tool`](https://docs.rs/vox-tool).
-//! `vox-tool` is written using `vox-format`. so everything it does, can also be
+//! If you're looking for a command-line utility to manipulate VOX files, take a look at [`vox-tool`]
+//! `vox-tool` is written using `vox-format`, so everything it does, can also be
 //! achieved using only this crate in Rust.
 //!
 //! ## Features
@@ -48,6 +48,7 @@
 //! println!("{:#?}", vox_data);
 //! ```
 //!
+//! [`vox-tool`]: https://crates.io/crates/vox-tool
 //! [`image`]: https://docs.rs/image/0.23.14/image/index.html
 //! [`mint`]: https://docs.rs/mint/0.5.6/mint/index.html
 //! [`nalgebra`]: https://docs.rs/nalgebra/0.28.0/nalgebra/index.html
