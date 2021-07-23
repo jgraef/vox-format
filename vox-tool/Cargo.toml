@@ -8,8 +8,8 @@ license = "MIT"
 documentation = "https://docs.rs/vox-format"
 homepage = "https://github.com/jgraef/vox-format"
 repository = "https://github.com/jgraef/vox-format"
-readme = "REAMDE.md"
-categories = ["command-line-utilities", "encoding", "game-development", "graphics", "multimedia::encoding", "parser-implementations", "rendering::data-formats"]
+readme = "README.md"
+categories = ["command-line-utilities", "game-development", "graphics", "multimedia::encoding", "rendering::data-formats"]
 keywords = ["voxel"]
 
 [dependencies]
