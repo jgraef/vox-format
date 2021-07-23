@@ -29,6 +29,7 @@ use crate::{
     types::{
         Palette,
         Size,
+        Version,
         Voxel,
     },
 };
@@ -36,36 +37,70 @@ use crate::{
 /// Error type returned when reading a VOX file fails.
 #[derive(Debug, Error)]
 pub enum Error {
+    /// The file signature is incorrect.
     #[error("Expected file header to start with b'VOX ', but got: {got:?}.")]
     InvalidMagic { got: [u8; 4] },
 
+    /// The file uses an unsupported version.
+    #[error("Unsupported file version: {version}")]
+    UnsupportedFileVersion { version: Version },
+
+    /// We expected to read the `MAIN` chunk, but instead read another chunk.
     #[error("Expected MAIN chunk, but read chunk with ID: {0:?}", got.id())]
     ExpectedMainChunk { got: Chunk },
 
-    #[error("Found multiple PACK chunks (at {} and {}).", .chunks[0].offset(), chunks[1].offset())]
-    MultiplePackChunks { chunks: [Chunk; 2] },
-
+    /// `SIZE` and `XYZI` chunks must appear in pairs. This error is returned if
+    /// the number of `SIZE` chunks doesn't match the number of `XYZI` chunks.
     #[error("Found {} SIZE chunks, {} XYZI chunks.", .size_chunks.len(), .xyzi_chunks.len())]
     InvalidNumberOfSizeAndXyziChunks {
         size_chunks: Vec<Chunk>,
         xyzi_chunks: Vec<Chunk>,
-        //num_models: usize,
     },
 
+    /// Multiple `RGBA` chunks (color palette) were found.
     #[error("Found multiple RGBA chunks (at {} and {}).", .chunks[0].offset(), chunks[1].offset())]
     MultipleRgbaChunks { chunks: [Chunk; 2] },
 
-    #[error("Invalid material type: {0}")]
-    InvalidMaterial(u8),
+    /// Unknown material type.
+    #[error("Invalid material type: {material_type}")]
+    InvalidMaterial { material_type: u8 },
 
+    /// An error of the underlying IO
     #[error("IO error")]
     Io(#[from] std::io::Error),
 
+    /// An error while decoding strings to UTF-8.
     #[error("Failed to decode UTF-8 string")]
     Utf8(#[from] std::string::FromUtf8Error),
 }
 
-/// Reads a VOX file from the reader into the [`VoxBuffer`].
+/// Reads a VOX file from the reader into the [`VoxBuffer`]. This function is
+/// useful, if you want to provide your own [`VoxBuffer`].
+///
+/// As an example, this `VoxBuffer` only counts the number of models in the
+/// file:
+///
+/// ```
+/// # use vox_format::{reader::read_vox_into, data::VoxBuffer, types::{Version, Size, Voxel, Palette}};
+/// # let mut vox_file = std::fs::File::open("../test_files/test_multiple_models.vox").unwrap();
+///
+/// #[derive(Default)]
+/// pub struct CountModels {
+///   num_models: usize
+/// }
+///
+/// impl VoxBuffer for CountModels {
+///   fn set_voxel(&mut self, _voxel: Voxel) {}
+///   fn set_palette(&mut self, _palette: Palette) {}
+///   fn set_num_models(&mut self, num_models: usize) {
+///     self.num_models += 1
+///   }
+/// }
+///
+/// let mut counter = CountModels::default();
+/// read_vox_into(vox_file, &mut counter).unwrap();
+/// println!("{}", counter.num_models);
+/// ```
 pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
     mut reader: R,
     buffer: &mut B,
@@ -199,28 +234,25 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
     Ok(())
 }
 
-/// Reads a VOX file from a reader into `VoxData`.
+/// Reads a VOX file from a reader into [`crate::data::VoxData`].
 pub fn from_reader<R: Read + Seek>(reader: R) -> Result<VoxData, Error> {
     let mut buffer = VoxData::default();
     read_vox_into(reader, &mut buffer)?;
     Ok(buffer)
 }
 
-/// Reads a VOX file from a slice into `VoxData`.
+/// Reads a VOX file from a slice into [`crate::data::VoxData`].
 pub fn from_slice(slice: &[u8]) -> Result<VoxData, Error> {
     from_reader(Cursor::new(slice))
 }
 
-/// Reads a VOX file from the specified path into `VoxData`.
+/// Reads a VOX file from the specified path into [`crate::data::VoxData`].
 pub fn from_file<P: AsRef<Path>>(path: P) -> Result<VoxData, Error> {
     from_reader(File::open(path)?)
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
-    // TODO: Write some proper test with some better test files.
-
     use std::collections::HashMap;
 
     use super::from_slice;

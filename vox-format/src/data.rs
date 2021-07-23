@@ -1,7 +1,13 @@
+//! Contains trait for for reading voxel data, and a simple implementation for
+//! it.
+
+#[cfg(feature = "serialize")]
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
 use crate::types::{
-    ColorIndex,
-    Material,
-    MaterialPalette,
     Model,
     Palette,
     Size,
@@ -9,61 +15,19 @@ use crate::types::{
     Voxel,
 };
 
-#[derive(Clone, Debug)]
-pub struct VoxData {
-    pub version: Version,
-    pub models: Vec<Model>,
-    pub palette: Palette,
-    pub materials: MaterialPalette,
-}
+/// A simple implementation of `VoxBuffer` that collects voxels into `Vec`s.
+pub type VoxData = VoxModels<Model>;
 
-impl Default for VoxData {
-    fn default() -> Self {
-        Self::new(Version::default())
-    }
-}
-
-impl VoxData {
-    pub fn new(version: Version) -> Self {
-        Self {
-            version,
-            models: vec![],
-            palette: Palette::default(),
-            materials: MaterialPalette::default(),
+impl VoxModelBuffer for Model {
+    fn new(size: Size) -> Self {
+        Model {
+            size,
+            voxels: vec![],
         }
     }
-}
 
-impl VoxBuffer for VoxData {
-    fn set_version(&mut self, version: Version) {
-        self.version = version;
-    }
-
-    fn set_num_models(&mut self, num_models: usize) {
-        self.models.reserve_exact(num_models);
-    }
-
-    fn set_model_size(&mut self, size: Size) {
-        self.models.push(Model {
-            size,
-            voxels: Vec::with_capacity((size.x * size.y * size.z) as usize),
-        })
-    }
-
-    fn set_voxel(&mut self, voxel: Voxel) {
-        let model = self
-            .models
-            .last_mut()
-            .expect("Expected to have set_model_size called first.");
-        model.voxels.push(voxel);
-    }
-
-    fn set_palette(&mut self, palette: Palette) {
-        self.palette = palette;
-    }
-
-    fn set_material(&mut self, material_id: ColorIndex, material: Material) {
-        self.materials.insert(material_id, material);
+    fn set_voxel(&mut self, voxel: Voxel, _palette: &Palette) {
+        self.voxels.push(voxel);
     }
 }
 
@@ -82,17 +46,25 @@ impl VoxBuffer for VoxData {
 /// passed via `set_voxel`. `set_model_size` is called for each model, and
 /// `set_voxel` is called for each voxel in a model.
 pub trait VoxBuffer {
-    fn set_version(&mut self, version: Version);
+    /// Called after the file version was read.
+    ///
+    /// The reader checks if the file version is supported, so most likely you
+    /// can ignore this.
+    fn set_version(&mut self, _version: Version) {}
 
-    fn set_num_models(&mut self, num_models: usize);
+    /// Called after the number of models was detected.
+    fn set_num_models(&mut self, _num_models: usize) {}
 
-    fn set_model_size(&mut self, model_size: Size);
+    /// Called for each model before its voxels are being passed with
+    /// [`VoxBuffer::set_voxel`].
+    fn set_model_size(&mut self, _model_size: Size) {}
 
+    /// Called for each voxel.
     fn set_voxel(&mut self, voxel: Voxel);
 
+    /// Called when the color palette was read. This will be read before any
+    /// calls to [`VoxelBuffer::set_voxel`].
     fn set_palette(&mut self, palette: Palette);
-
-    fn set_material(&mut self, material_id: ColorIndex, material: Material);
 }
 
 /// Trait for reading a single model.
@@ -104,14 +76,27 @@ pub trait VoxModelBuffer {
 /// A [`VoxBuffer`] implementation that collects the models into a `Vec` and is
 /// generic over the kind of voxel data.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct VoxModels<V> {
+    pub version: Version,
     pub models: Vec<V>,
     pub palette: Palette,
-    pub materials: MaterialPalette,
+}
+
+impl<V> Default for VoxModels<V> {
+    fn default() -> Self {
+        Self {
+            version: Version::default(),
+            models: vec![],
+            palette: Palette::default(),
+        }
+    }
 }
 
 impl<V: VoxModelBuffer> VoxBuffer for VoxModels<V> {
-    fn set_version(&mut self, _version: Version) {}
+    fn set_version(&mut self, version: Version) {
+        self.version = version;
+    }
 
     fn set_num_models(&mut self, num_models: usize) {
         self.models.reserve_exact(num_models);
@@ -128,9 +113,5 @@ impl<V: VoxModelBuffer> VoxBuffer for VoxModels<V> {
 
     fn set_palette(&mut self, palette: Palette) {
         self.palette = palette;
-    }
-
-    fn set_material(&mut self, material_id: ColorIndex, material: Material) {
-        self.materials.insert(material_id, material);
     }
 }

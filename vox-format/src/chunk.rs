@@ -372,6 +372,9 @@ pub fn read_main_chunk<R: Read + Seek>(mut reader: R) -> Result<(Chunk, Version)
 
     let version = Version::read(&mut reader)?;
     log::trace!("version = {:?}", version);
+    if !version.is_supported() {
+        return Err(ReadError::UnsupportedFileVersion { version });
+    }
 
     let main_chunk = Chunk::read(reader)?;
 

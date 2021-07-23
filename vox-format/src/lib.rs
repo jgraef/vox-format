@@ -11,11 +11,26 @@
 //!
 //! ## Features
 //!
-//! # `image` support
+//! ### `image` support
 //!
-//! This crate has support for some conversion between its types and [`image`](https://docs.rs/image/0.23.14/image/index.html)
-//! types. Specifically between [`Color`] and `Rgba<u8>`.  But it also provides
-//! methods to read and write palettes from images.
+//! This crate has support for some conversion between its types and [`image`]
+//! types. Specifically between [`crate::types::Color`] and `Rgba<u8>`. But it
+//! also provides methods to read and write palettes from images.
+//!
+//! ### `mint` and `nalgebra` support
+//!
+//! The feature [`mint`] and [`nalgebra`] enables conversion for
+//! [`crate::types::Vector`] for these crates.
+//!
+//! ### `palette` support
+//!
+//! This feature enables conversion between [`crate::types::Color`] and
+//! `Srgb<u8>`.
+//!
+//! ### `serialize`
+//!
+//! Enables serialization for types in [`crate::types`] and
+//! [`crate::data::VoxData`].
 //!
 //! # This crate is work-in-progress
 //!
@@ -25,13 +40,17 @@
 //!
 //! # Examples
 //!
-//! Reads `VoxData` from path.
+//! Reads [`crate::data::VoxData`] from path:
 //!
 //! ```rust
-//! let vox_data =
-//!     vox_format::from_file("../test_files/test_single_model_default_palette.vox").unwrap();
+//! # let path = "../test_files/test_single_model_default_palette.vox";
+//! let vox_data = vox_format::from_file(path).unwrap();
 //! println!("{:#?}", vox_data);
 //! ```
+//!
+//! [`image`]: https://docs.rs/image/0.23.14/image/index.html
+//! [`mint`]: https://docs.rs/mint/0.5.6/mint/index.html
+//! [`nalgebra`]: https://docs.rs/nalgebra/0.28.0/nalgebra/index.html
 
 pub mod chunk;
 pub mod data;

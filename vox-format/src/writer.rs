@@ -32,11 +32,9 @@ pub enum Error {
     #[error("IO error")]
     Io(#[from] std::io::Error),
 
+    /// An integer overflowed.
     #[error("Integer overflow")]
     Overflow(#[from] std::num::TryFromIntError),
-
-    #[error("Can't write VOX file with no models.")]
-    NoModels,
 
     /// This is a work-around,since sometimes we want to read VOX files in a
     /// chunk-writer closure.
@@ -45,13 +43,13 @@ pub enum Error {
 }
 
 /// Writes the file header for a VOX file.
-pub fn write_file_header<W: Write>(mut writer: W, version: Version) -> Result<(), Error> {
+fn write_file_header<W: Write>(mut writer: W, version: Version) -> Result<(), Error> {
     writer.write_all(b"VOX ")?;
     version.write(writer)?;
     Ok(())
 }
 
-/// Writes the MAIN chunk including the file signature. The closure you pass,
+/// Writes the `MAIN` chunk including the file signature. The closure you pass,
 /// will be called with the [`ChunkWriter`] for the `MAIN` chunk.
 pub fn main_chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Result<(), Error>>(
     mut writer: W,
@@ -63,19 +61,16 @@ pub fn main_chunk_writer<W: Write + Seek, F: FnMut(&mut ChunkWriter<W>) -> Resul
     chunk_writer(writer, ChunkId::Main, f)
 }
 
-/// Writes [`VoxData`] to an IO writer.
+/// Writes [`crate::data::VoxData`] to a [`std::io::Write`].
 pub fn to_writer<W: Write + Seek>(writer: W, vox: &VoxData) -> Result<(), Error> {
     main_chunk_writer(writer, Version::default(), |chunk_writer| {
-        // Write PACK, if there is more than 1 model
-        match vox.models.len() {
-            0 => return Err(Error::NoModels),
-            1 => {}
-            n => {
-                chunk_writer.child_content_writer(ChunkId::Pack, |writer| {
-                    writer.write_u32::<LE>(n.try_into()?)?;
-                    Ok(())
-                })?;
-            }
+        // Write PACK, if there is more than 1 model.
+        // FIXME: Apparently PACK is not used anymore.
+        if vox.models.len() > 1 {
+            chunk_writer.child_content_writer(ChunkId::Pack, |writer| {
+                writer.write_u32::<LE>(vox.models.len().try_into()?)?;
+                Ok(())
+            })?;
         }
 
         // Write models

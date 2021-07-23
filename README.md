@@ -99,13 +99,16 @@ vox-tool --help
    - [ ] Check `vox-tool` usage
  - [x] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
  - [x] Proper iterator types, instead of `impl Iterator`.
- - [ ] Remove `dev-dependencies`. They're only occasionaly used during debugging.
- - [ ] Is `vox-tool` ready?
+ - [x] Remove `dev-dependencies`. They're only occasionaly used during debugging.
+ - [x] Is `vox-tool` ready?
+ - [ ] Update README
+ - [ ] Last: grep for TODOs, run clippy, tests, fmt.
 
 
 ## After first release
 
  - [_] Finish implementing undocumented chunk IDs.
+ - [_] Function and trait to write arbitrary voxel data, and not only `VoxData`.
  - [ ] Move `copy_map_chunks` to `vox_format::chunk` and implement copying children.
  - [_] Write tests:
    - [ ] Read materials

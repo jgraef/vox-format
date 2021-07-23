@@ -32,8 +32,22 @@ use crate::{
     writer::Error as WriteError,
 };
 
+/// The version of a `.VOX` file. This is a wrapper around a `u32` and
+/// implements `Default` and the [`Version::is_supported`] method.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 pub struct Version(pub u32);
+
+impl Version {
+    /// Returns whether this version is supported.
+    pub fn is_supported(&self) -> bool {
+        *self == Self::default()
+    }
+}
 
 impl Default for Version {
     fn default() -> Self {
@@ -48,10 +62,12 @@ impl fmt::Display for Version {
 }
 
 impl Version {
+    /// Reads a version from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self(reader.read_u32::<LE>()?))
     }
 
+    /// Writes the version to a [`std::io::Write`].
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         writer.write_u32::<LE>(self.0)?;
         Ok(())
@@ -60,13 +76,16 @@ impl Version {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-/// A collection of voxels with a specific size. Note, that the voxels are
+/// A collection of voxels with a specific size.
+///
+/// Note, that the voxels are
 /// stored as a `Vec`, like they're stored in-file. Therefore there is no
 /// efficient point-query for voxels. If you need your models to support
-/// point-queries, you must implement your own [`crate::reader::VoxBuffer`] or
-/// [`crate::reader::VoxModelBuffer`]. For testing and convienience there is
+/// point-queries, you must implement your own [`crate::data::VoxBuffer`] or
+/// [`crate::data::VoxModelBuffer`]. For testing and convienience there is
 /// [`Model::get_voxel`] to perform a point-query with a linear search.
 pub struct Model {
+    /// Size of the model in voxels.
     pub size: Size,
     pub voxels: Vec<Voxel>,
 }
@@ -88,6 +107,16 @@ pub struct Voxel {
 }
 
 impl Voxel {
+    /// Creates a new voxel
+    ///
+    /// # Arguments
+    ///
+    /// - `point`: The point location of the voxel.
+    /// - `color_index`: The color index for this voxel.
+    ///
+    /// # Returns
+    ///
+    /// The newly created voxel.
     pub fn new(point: impl Into<Point>, color_index: impl Into<ColorIndex>) -> Self {
         Self {
             point: point.into(),
@@ -95,6 +124,7 @@ impl Voxel {
         }
     }
 
+    /// Reads a voxel from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self {
             point: Point::read(&mut reader)?,
@@ -102,6 +132,7 @@ impl Voxel {
         })
     }
 
+    /// Writes the voxel to a [`std::io::Write`].
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         self.point.write(&mut writer)?;
         self.color_index.write(&mut writer)?;
@@ -118,12 +149,14 @@ pub struct Vector<T> {
 }
 
 impl<T> Vector<T> {
+    /// Creates a vector from its components.
     pub fn new(x: T, y: T, z: T) -> Self {
         Self { x, y, z }
     }
 }
 
 impl Vector<i8> {
+    /// Reads a vector from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self {
             x: reader.read_i8()?,
@@ -132,6 +165,7 @@ impl Vector<i8> {
         })
     }
 
+    /// Writes the vector to a [`std::io::Write`].
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         writer.write_i8(self.x)?;
         writer.write_i8(self.y)?;
@@ -141,6 +175,7 @@ impl Vector<i8> {
 }
 
 impl Vector<u32> {
+    /// Reads a vector from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self {
             x: reader.read_u32::<LE>()?,
@@ -149,6 +184,7 @@ impl Vector<u32> {
         })
     }
 
+    /// Writes the vector to a [`std::io::Write`].
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         writer.write_u32::<LE>(self.x)?;
         writer.write_u32::<LE>(self.y)?;
@@ -179,6 +215,11 @@ impl<T: fmt::Debug> fmt::Debug for Vector<T> {
 pub type Point = Vector<i8>;
 pub type Size = Vector<u32>;
 
+/// A color palette. This contains colors indexec by `u8`. It is used to look up
+/// colors of a voxel.
+///
+/// If you need MagicaVoxel's default palette, you can either use
+/// [`crate::default_palette::DEFAULT_PALETTE`], or [`Palette::default`].
 #[derive(Clone, Debug)]
 #[cfg_attr(
     feature = "serialize",
@@ -186,6 +227,10 @@ pub type Size = Vector<u32>;
     serde(transparent)
 )]
 pub struct Palette {
+    /// The colors of the palette.
+    ///
+    /// MagicaVoxel always set color 0 to be fully transparent. We don't enfore
+    /// this, but this palette entry will never be written to a `.VOX` file.
     #[cfg_attr(feature = "serialize", serde(with = "serde_big_array::BigArray"))]
     pub colors: [Color; 256],
 }
@@ -197,23 +242,32 @@ impl Default for Palette {
 }
 
 impl Palette {
+    /// Tests whether this is the [`crate::default_palette::DEFAULT_PALETTE`].
     pub fn is_default(&self) -> bool {
         self.colors == DEFAULT_PALETTE.colors
     }
 
+    /// Returns the color for an index. Since all color indices are valid, this
+    /// always returns a value. This is equivalent to `palette[index]`.
     pub fn get(&self, color_index: ColorIndex) -> Color {
         self.colors[color_index.0 as usize]
     }
 
-    // TODO: Return a struct here
+    /// Creates an iterator over all colors.
+    ///
+    /// ```
+    /// # let palette = vox_format::types::Palette::default();
+    /// for (index, color) in palette.iter() {
+    ///     println!("{} -> {:?}", index, color);
+    /// }
+    /// ```
     pub fn iter(&self) -> PaletteIter {
         PaletteIter {
-            inner: self.colors
-                .iter()
-                .enumerate(),
-        }       
+            inner: self.colors.iter().enumerate(),
+        }
     }
 
+    /// Reads a color palette from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         let mut palette = Palette::default();
 
@@ -224,6 +278,11 @@ impl Palette {
         Ok(palette)
     }
 
+    /// Writes the color palette to a [`std::io::Write`].
+    ///
+    /// MagicaVoxel fixes color 0 to be always fully transparent, and doesn't
+    /// include it in the file. Therefore this method will ignore the value
+    /// for color 0.
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         for color in &self.colors[1..] {
             color.write(&mut writer)?;
@@ -233,6 +292,8 @@ impl Palette {
     }
 }
 
+/// An iterator over entries in a [`Palette`]. This is created with
+/// [`Palette::iter`].
 #[derive(Debug)]
 pub struct PaletteIter<'a> {
     inner: std::iter::Enumerate<std::slice::Iter<'a, Color>>,
@@ -247,8 +308,6 @@ impl<'a> Iterator for PaletteIter<'a> {
     }
 }
 
-
-
 impl Index<ColorIndex> for Palette {
     type Output = Color;
 
@@ -257,6 +316,12 @@ impl Index<ColorIndex> for Palette {
     }
 }
 
+/// A palette of materials
+///
+/// # Work-in-Progress
+///
+/// This interface his likely to change in the future and is not fully
+/// implemented yet.
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -269,27 +334,40 @@ pub struct MaterialPalette {
 }
 
 impl MaterialPalette {
+    /// Tests if the material palette is empty.
     pub fn is_empty(&self) -> bool {
         self.materials.is_empty()
     }
 
+    /// Returns the  material with ID `material_id` from the palette. Returns
+    /// `None`, if there is no material with this ID. This is equivalent to
+    /// `material_palette[material_id]`.
     pub fn get(&self, material_id: ColorIndex) -> Option<&Material> {
         self.materials.get(&material_id)
     }
 
-    // TODO: Return a struct here
+    /// Creates an iterator over all materials.
+    ///
+    /// ```
+    /// # let material_palette = vox_format::types::MaterialPalette::default();
+    /// for (id, material) in material_palette.iter() {
+    ///     println!("{} -> {:#?}", id, material);
+    /// }
+    /// ```
+    ///
+    /// # Work-in-Progress
+    ///
+    /// This interface his likely to change in the future and is not fully
+    /// implemented yet.
     pub fn iter(&self) -> MaterialPaletteIter {
         MaterialPaletteIter {
-            inner: self.materials
-            .iter()
+            inner: self.materials.iter(),
         }
-    }
-
-    pub fn insert(&mut self, material_id: ColorIndex, material: Material) {
-        self.materials.insert(material_id, material);
     }
 }
 
+/// An iterator over entries in a [`MaterialPalette`]. This is created with
+/// [`MaterialPalette::iter`].
 #[derive(Debug)]
 pub struct MaterialPaletteIter<'a> {
     inner: std::collections::hash_map::Iter<'a, ColorIndex, Material>,
@@ -304,22 +382,30 @@ impl<'a> Iterator for MaterialPaletteIter<'a> {
     }
 }
 
+/// An 8-bit RGBA color.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Color {
+    /// Red channel
     pub r: u8,
+
+    /// Green channel
     pub g: u8,
+
+    /// Blue channel
     pub b: u8,
 
-    /// Alpha channel, opacity. `0` is fully transparent, `255` is fully opaque.
+    /// Alpha channel. `0` is fully transparent, `255` is fully opaque.
     pub a: u8,
 }
 
 impl Color {
+    /// Creates a new color from its channels.
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
     }
 
+    /// Reads a color from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         // FIXME: I think color is stored in ABGR format.
         Ok(Self {
@@ -330,6 +416,7 @@ impl Color {
         })
     }
 
+    /// Writes the color to a [`std::io::Write`].
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         // FIXME: I think color is stored in ABGR format.
         writer.write_u8(self.r)?;
@@ -339,7 +426,9 @@ impl Color {
         Ok(())
     }
 
-    /// The light blue color selected on default.
+    /// A light-blue color. This is the color that is selected by MagicaVoxel by
+    /// default. It has index `79` in the [default
+    /// palette](`crate::default_palette::DEFAULT_PALETTE`)
     pub fn light_blue() -> Self {
         Self {
             r: 153,
@@ -373,13 +462,15 @@ impl From<[u8; 4]> for Color {
     derive(Serialize, Deserialize),
     serde(transparent)
 )]
-pub struct ColorIndex(u8);
+pub struct ColorIndex(pub u8);
 
 impl ColorIndex {
+    /// Reads a color index from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self(reader.read_u8()?))
     }
 
+    /// Writes the color index to a [`std::io::Write`].
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
         writer.write_u8(self.0)?;
         Ok(())
@@ -394,10 +485,6 @@ impl ColorIndex {
 
 impl From<u8> for ColorIndex {
     fn from(x: u8) -> Self {
-        // I don't think this is invalid
-        /*if x == 255 {
-            panic!("Invalid color index: 255");
-        }*/
         Self(x)
     }
 }
@@ -414,11 +501,29 @@ impl fmt::Display for ColorIndex {
     }
 }
 
+/// A material definition.
+///
+/// # Work-in-Progress
+///
+/// This interface his likely to change in the future and is not fully
+/// implemented yet.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Material {
+    /// The type of material.
     pub ty: MaterialType,
+
+    /// The mateiral weight. This has a different meaning depending on the
+    /// material type:
+    ///  - [`MaterialType::Diffuse`]: Always `1.0`.
+    ///  - [`MaterialType::Metal`]: Blends between metal and diffuse material.
+    ///    Must be in interval `(0.0, 1.0]`.
+    ///  - [`MaterialType::Glass`]: Blends between glass and diffuse material.
+    ///    Must be in interval `(0.0, 1.0]`.
+    ///  - [`MaterialType::Emissive`]: The intensity of emitted light. Must be
+    ///    in interval `(0.0, 1.0]`.
     pub weight: f32,
+
     pub plastic: Option<f32>,
     pub roughness: Option<f32>,
     pub specular: Option<f32>,
@@ -430,6 +535,7 @@ pub struct Material {
 }
 
 impl Material {
+    /// Reads a material definition from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         let ty = MaterialType::read(&mut reader)?;
         let weight = reader.read_f32::<LE>()?;
@@ -472,6 +578,12 @@ impl Material {
     }
 }
 
+/// A material type.
+///
+/// # Work-in-Progress
+///
+/// This interface his likely to change in the future and is not fully
+/// implemented yet.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum MaterialType {
@@ -507,11 +619,12 @@ impl From<MaterialType> for u8 {
 }
 
 impl MaterialType {
+    /// Reads a material type from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         reader
             .read_u8()?
             .try_into()
-            .map_err(|e: MaterialTryFromError| ReadError::InvalidMaterial(e.0))
+            .map_err(|e: MaterialTryFromError| ReadError::InvalidMaterial { material_type: e.0 })
     }
 
     pub fn write<W: Write>(&self, mut writer: W) -> Result<(), WriteError> {
@@ -520,6 +633,12 @@ impl MaterialType {
     }
 }
 
+/// A transform node.
+///
+/// # Work-in-Progress
+///
+/// This interface his likely to change in the future and is not fully
+/// implemented yet.
 #[derive(Debug, Error)]
 #[error("Invalid material type: {0}")]
 pub struct MaterialTryFromError(pub u8);
@@ -536,6 +655,7 @@ pub struct Transform {
 }
 
 impl Transform {
+    /// Reads a transform node from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         let node_id = reader.read_u32::<LE>()?;
         let attributes = Attributes::read(&mut reader)?;
@@ -559,7 +679,6 @@ impl Transform {
         })
     }
 
-    // TODO: Return an error?
     pub fn get_transform(&self, frame: usize) -> Option<Vector<i32>> {
         let mut parts = self.frames.get(frame)?.get("_t")?.split_whitespace();
         let x = parts.next()?.parse().ok()?;
@@ -570,6 +689,12 @@ impl Transform {
     }
 }
 
+/// A group node.
+///
+/// # Work-in-Progress
+///
+/// This interface his likely to change in the future and is not fully
+/// implemented yet.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Group {
@@ -579,6 +704,7 @@ pub struct Group {
 }
 
 impl Group {
+    /// Reads a group from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         let node_id = reader.read_u32::<LE>()?;
         let attributes = Attributes::read(&mut reader)?;
@@ -597,6 +723,12 @@ impl Group {
     }
 }
 
+/// A shape node.
+///
+/// # Work-in-Progress
+///
+/// This interface his likely to change in the future and is not fully
+/// implemented yet.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Shape {
@@ -605,6 +737,7 @@ pub struct Shape {
 }
 
 impl Shape {
+    /// Reads a shape node from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self {
             node_id: reader.read_u32::<LE>()?,
@@ -613,6 +746,12 @@ impl Shape {
     }
 }
 
+/// A layer node.
+///
+/// # Work-in-Progress
+///
+/// This interface his likely to change in the future and is not fully
+/// implemented yet.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Layer {
@@ -622,6 +761,7 @@ pub struct Layer {
 }
 
 impl Layer {
+    /// Reads a layer node from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         Ok(Self {
             node_id: reader.read_u32::<LE>()?,
@@ -631,6 +771,8 @@ impl Layer {
     }
 }
 
+/// Node attributes. These contain meta-data for nodes, such as [`Transform`] or
+/// [`Layer`].
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -642,6 +784,7 @@ pub struct Attributes {
 }
 
 impl Attributes {
+    /// Reads attributes from a [`std::io::Read`].
     pub fn read<R: Read>(mut reader: R) -> Result<Self, ReadError> {
         // An array of key value pairs, where key and value are strings prefixed with
         // length as u32
@@ -668,18 +811,22 @@ impl Attributes {
         Ok(String::from_utf8(buf)?)
     }
 
+    /// Returns the attribute with the given key, or `None`, if no such
+    /// attribute exists.
     pub fn get(&self, key: impl AsRef<str>) -> Option<&str> {
         Some(self.inner.get(key.as_ref())?.as_str())
     }
 
+    /// Creates an iterator over the attributes. The iterator returns items
+    /// `(&str, &str)`.
     pub fn iter(&self) -> AttributesIter {
         AttributesIter {
-            inner: self.inner.iter()
+            inner: self.inner.iter(),
         }
     }
 }
 
-
+/// An interator over attributes. Created with [`Attributes::iter`].
 #[derive(Debug)]
 pub struct AttributesIter<'a> {
     inner: std::collections::hash_map::Iter<'a, String, String>,

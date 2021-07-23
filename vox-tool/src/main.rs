@@ -94,20 +94,6 @@ enum Args {
         #[structopt(short = "o", long = "output")]
         output: PathBuf,
     },
-    /* /// Exports a slice of the volume as image.
-    ExportSlice {
-        #[structopt(short = "x")]
-        x: Option<i8>,
-
-        #[structopt(short = "y")]
-        y: Option<i8>,
-
-        #[structopt(short = "z")]
-        z: Option<i8>,
-
-        #[structopt(short = "o", long = "output")]
-        ouptut: PathBuf,
-    },*/
     /// Replaces the palette in a VOX file.
     ///
     /// The palette is specified with `--palette` option and must be an image.
