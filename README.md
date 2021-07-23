@@ -1,9 +1,7 @@
+[![crates.io](https://img.shields.io/crates/v/vox-format.svg)](https://crates.io/crates/vox-format)
+[![docs.rs](https://docs.rs/vox-format/badge.svg)](https://docs.rs/vox-format)
 [![MIT license](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
 ![Maintenance](https://img.shields.io/badge/maintenance-experimental-blue.svg)
-
-
-**This is in development. The README is not accurate, as there is no release on crates.io yet.**
-
 
 # `vox-format`
 
@@ -14,6 +12,7 @@
 In your `Cargo.toml` add:
 
 ```toml
+[dependencies]
 vox-format = "0.1"
 ```
 
@@ -21,7 +20,7 @@ vox-format = "0.1"
 
 ```rust
 let vox_data = vox_format::from_file("test_files/glider.vox")?;
-println!("{:#?}, vox_data);
+println!("{:#?}", vox_data);
 ```
 
 # `vox-tool`
@@ -74,44 +73,15 @@ Then from any directory, run
 vox-tool --help
 ```
 
-
 # TODO
 
-## For first release
-
- - [x] Reading of undocumented chunk IDs.
- - [x] Integrations:
-   - [x] `image`
-   - [x] `palette`
-   - [x] `mint`
-   - [x] `nalgebra`
-   - [x] `serde`
- - [x] Write tests:
-   - [x] Read single model
-   - [x] Read multiple models
-   - [x] Read custom palette
-   - [x] ColorIndex behaviour.
- - [x] More documentation:
-   - [x] proof-read docs
-   - [x] Check `vox-tool` usage
- - [x] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
- - [x] Proper iterator types, instead of `impl Iterator`.
- - [x] Remove `dev-dependencies`. They're only occasionaly used during debugging.
- - [X] Is `vox-tool` ready?
-   - [X] Fix `vox-tool set-palette` bug.
- - [ ] Update README
-   - Remove banner that it's not released yet.
- - [ ] Last: grep for TODOs, run clippy, tests, fmt.
-
-
-## After first release
-
- - [_] Finish implementing undocumented chunk IDs.
- - [_] Function and trait to write arbitrary voxel data, and not only `VoxData`.
+ - [ ] Finish implementing undocumented chunk IDs.
+ - [ ] Function and trait to write arbitrary voxel data, and not only `VoxData`.
  - [ ] Move `copy_map_chunks` to `vox_format::chunk` and implement copying children.
- - [_] Write tests:
+ - [ ] Write tests:
    - [ ] Read materials
    - [ ] Material ID behaviour (is it just a `ColorIndex`?)
+ - [ ] Support for `INFO`, `rOBJ` and `rCAM` chunks.
 
 # License
 
