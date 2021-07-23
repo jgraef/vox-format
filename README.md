@@ -91,17 +91,16 @@ vox-tool --help
    - [x] Read multiple models
    - [x] Read custom palette
    - [x] ColorIndex behaviour.
- - [ ] More documentation:
-   - [ ] docs for all items: `#![deny(missing_docs)]`
-   - [ ] Some more examples for function docs
-   - [ ] proof-read docs
-   - [ ] Example programs (`cargo run --example`)
-   - [ ] Check `vox-tool` usage
+ - [x] More documentation:
+   - [x] proof-read docs
+   - [x] Check `vox-tool` usage
  - [x] Some methods in `Chunk` take `&mut W` instead of `W` as argument. And some calls unnecessarily use `&mut writer`.
  - [x] Proper iterator types, instead of `impl Iterator`.
  - [x] Remove `dev-dependencies`. They're only occasionaly used during debugging.
- - [x] Is `vox-tool` ready?
+ - [X] Is `vox-tool` ready?
+   - [X] Fix `vox-tool set-palette` bug.
  - [ ] Update README
+   - Remove banner that it's not released yet.
  - [ ] Last: grep for TODOs, run clippy, tests, fmt.
 
 

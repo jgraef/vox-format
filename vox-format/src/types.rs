@@ -449,9 +449,9 @@ impl From<[u8; 4]> for Color {
     fn from(color: [u8; 4]) -> Self {
         Self {
             r: color[0],
-            g: color[0],
-            b: color[0],
-            a: color[0],
+            g: color[1],
+            b: color[2],
+            a: color[3],
         }
     }
 }

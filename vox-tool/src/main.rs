@@ -31,6 +31,7 @@ use vox_format::{
     default_palette::DEFAULT_PALETTE,
     from_file,
     types::{
+        ColorIndex,
         Model,
         Palette,
     },
@@ -89,8 +90,8 @@ enum Args {
         /// the default palette will be exported.
         input: Option<PathBuf>,
 
-        /// The path for the output file. The file format will be guessed using
-        /// the file extension.
+        /// Output file. Defaults to `INPUT.new-palette.vox` where `INPUT` is
+        /// the input file path without `.vox` file extension.
         #[structopt(short = "o", long = "output")]
         output: PathBuf,
     },
@@ -211,7 +212,7 @@ impl Args {
                     }
                 }
 
-                if print_palette {
+                if print_palette || print_palette_even_if_default {
                     if vox.palette.is_default() && !print_palette_even_if_default {
                         println!("Palette: default");
                     }
@@ -242,6 +243,8 @@ impl Args {
                 output,
             } => {
                 let palette = if let Some(palette) = palette {
+                    log::debug!("Loading palette: {}", palette.display());
+
                     let image = ImageReader::open(palette)?.decode()?;
 
                     // TODO: It would be nicer to pass an `ImageBuffer` with any pixel format and
@@ -251,6 +254,7 @@ impl Args {
                     Palette::from_image(&image)
                 }
                 else {
+                    log::debug!("Using default palette");
                     DEFAULT_PALETTE
                 };
 
@@ -258,6 +262,9 @@ impl Args {
 
                 copy_map_chunks(&input, &output, |_reader, chunk, writer| {
                     if matches!(chunk.id(), ChunkId::Rgba) {
+                        log::debug!("Replacing RGBA chunk");
+                        log::debug!("{:?}", palette.get(ColorIndex::from(69)));
+
                         // Replace RGBA chunk
                         writer
                             .child_content_writer(ChunkId::Rgba, |writer| palette.write(writer))?;
@@ -321,6 +328,7 @@ fn copy_map_chunks<
         for chunk in &chunks {
             if f(&mut reader, chunk, chunk_writer)? {
                 // Copy chunk
+                log::trace!("Copying chunk: {:?}", chunk.id());
 
                 buf.clear();
                 buf.reserve(chunk.content_len().try_into()?);

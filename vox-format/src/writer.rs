@@ -1,4 +1,5 @@
-///! Provides functions to write VOX files.
+//! Provides functions to write VOX files. This is work-in-progress.
+
 use std::{
     convert::TryInto,
     fs::OpenOptions,

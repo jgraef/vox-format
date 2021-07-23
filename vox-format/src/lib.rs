@@ -25,11 +25,11 @@
 //! ### `palette` support
 //!
 //! This feature enables conversion between [`crate::types::Color`] and
-//! `Srgb<u8>`.
+//! `Srgb<u8>` from the [`palette`] crate.
 //!
 //! ### `serialize`
 //!
-//! Enables serialization for types in [`crate::types`] and
+//! Enables serialization using [`serde`] for types in [`crate::types`] and
 //! [`crate::data::VoxData`].
 //!
 //! # This crate is work-in-progress
@@ -51,6 +51,7 @@
 //! [`image`]: https://docs.rs/image/0.23.14/image/index.html
 //! [`mint`]: https://docs.rs/mint/0.5.6/mint/index.html
 //! [`nalgebra`]: https://docs.rs/nalgebra/0.28.0/nalgebra/index.html
+//! [`palette`]: https://docs.rs/palette/0.6.0/palette/index.html
 
 pub mod chunk;
 pub mod data;

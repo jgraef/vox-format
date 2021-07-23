@@ -5,7 +5,7 @@
 //! Unfortunately it's different enough that the `riff` crate can't be used.
 //!
 //! The file format consists of so-called chunks, which contain specific data
-//! (e.g. palette data). Chunks have IDs consisting of 4 characters. A file
+//! (e.g. palette data). Chunks have IDs consisting of 4 bytes. A file
 //! starts with a root-chunk `MAIN`. The `MAIN` chunk then contains other chunks
 //! that contain the voxel data. The format is specified [here](https://github.com/ephtracy/voxel-model/blob/master/MagicaVoxel-file-format-vox.txt), but not all chunk IDs are described.
 
@@ -482,7 +482,7 @@ impl<W: Write + Seek> ChunkWriter<W> {
 
         f(&mut content_writer)?;
 
-        self.content_len = content_writer.len();
+        self.content_len += content_writer.len();
 
         Ok(())
     }
@@ -520,7 +520,7 @@ impl<W: Write + Seek> ChunkWriter<W> {
 
         f(&mut child_writer)?;
 
-        self.children_len = child_writer.writer.len();
+        self.children_len += child_writer.writer.len();
 
         child_writer.write_header()?;
 

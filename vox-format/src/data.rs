@@ -63,7 +63,7 @@ pub trait VoxBuffer {
     fn set_voxel(&mut self, voxel: Voxel);
 
     /// Called when the color palette was read. This will be read before any
-    /// calls to [`VoxelBuffer::set_voxel`].
+    /// calls to [`Self::set_voxel`].
     fn set_palette(&mut self, palette: Palette);
 }
 

@@ -1,4 +1,5 @@
-///! Provides functions to read VOX files.
+//! Provides functions to read VOX files.
+
 use std::{
     fs::File,
     io::{
@@ -123,10 +124,6 @@ pub fn read_vox_into<R: Read + Seek, B: VoxBuffer>(
 
     for r in main_chunk.children(&mut reader) {
         let chunk = r?;
-
-        if chunk.children_len() > 0 {
-            log::warn!("Chunk {:?} has children o.O", chunk.id());
-        }
 
         match chunk.id() {
             /*ChunkId::Pack => {
