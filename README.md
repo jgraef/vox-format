@@ -64,7 +64,7 @@ cargo run -- --help
 or if you want to install the binary, run:
 
 ```sh
-cargo install -p vox-tool --help
+cargo install --path vox-tool
 ```
 
 Then from any directory, run

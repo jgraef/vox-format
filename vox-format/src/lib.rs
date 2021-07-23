@@ -1,13 +1,14 @@
 //! # Overview
 //!
-//! This crate provides a reader and write for [MagicaVoxel's](https://ephtracy.github.io/) VOX files. It was designed with the
-//! in mind to keep copying to a minimum. While you can read a full VOX file
-//! into a [`VoxData`] and then read or manipulate its data, there's also an
-//! interface to construct your own voxel data from a VOX file.
+//! This crate provides a reader and write for [MagicaVoxel's] VOX files.
+//! It was designed with the goal in mind to keep copying to a minimum. While
+//! you can read a full VOX file into a [`VoxData`] and then read or manipulate
+//! its data, there's also an interface to construct your own voxel data from a
+//! VOX file.
 //!
-//! If you're looking for a command-line utility to manipulate VOX files, take a look at [`vox-tool`]
-//! `vox-tool` is written using `vox-format`, so everything it does, can also be
-//! achieved using only this crate in Rust.
+//! If you're looking for a command-line utility to manipulate VOX files, take a
+//! look at [`vox-tool`] `vox-tool` is written using `vox-format`, so everything
+//! it does, can also be achieved using only this crate in Rust.
 //!
 //! ## Features
 //!
@@ -47,7 +48,7 @@
 //! let vox_data = vox_format::from_file(path).unwrap();
 //! println!("{:#?}", vox_data);
 //! ```
-//!
+//! [MagicaVoxel's]: https://ephtracy.github.io/
 //! [`vox-tool`]: https://crates.io/crates/vox-tool
 //! [`image`]: https://docs.rs/image/0.23.14/image/index.html
 //! [`mint`]: https://docs.rs/mint/0.5.6/mint/index.html

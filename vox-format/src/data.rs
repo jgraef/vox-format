@@ -15,7 +15,7 @@ use crate::types::{
     Voxel,
 };
 
-/// A simple implementation of `VoxBuffer` that collects voxels into `Vec`s.
+/// A simple implementation of [`VoxBuffer`] that collects voxels into `Vec`s.
 pub type VoxData = VoxModels<Model>;
 
 impl VoxModelBuffer for Model {
@@ -31,8 +31,8 @@ impl VoxModelBuffer for Model {
     }
 }
 
-/// A trait for data structures that can constructed from a VOX file.
-/// `[crate::vox::VoxData]` implements this for convienience, but you can also
+/// A trait for data structures that can be constructed from a VOX file.
+/// [`crate::vox::VoxData`] implements this for convienience, but you can also
 /// implement this for your own voxel model types.
 ///
 /// These are always called in this order:
